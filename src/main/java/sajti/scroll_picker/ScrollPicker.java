@@ -1,0 +1,353 @@
+package sajti.scroll_picker;
+
+import android.content.Context;
+import android.content.res.TypedArray;
+import android.graphics.Canvas;
+import android.graphics.Color;
+import android.graphics.Paint;
+import android.graphics.Rect;
+import android.support.annotation.NonNull;
+import android.support.v4.widget.NestedScrollView;
+import android.support.v4.widget.Space;
+import android.util.AttributeSet;
+import android.util.TypedValue;
+import android.view.LayoutInflater;
+import android.view.MotionEvent;
+import android.view.View;
+import android.view.ViewConfiguration;
+import android.view.ViewGroup;
+import android.view.ViewTreeObserver;
+import android.widget.LinearLayout;
+import android.widget.RelativeLayout;
+import android.widget.TextView;
+
+import java.util.ArrayList;
+import java.util.LinkedList;
+import java.util.List;
+
+import static android.view.Gravity.CENTER;
+
+/**
+ * Made by github.com/tomeeeS
+ * <p>
+ * Implementation notes:
+ * Do Not try to refactor the funcionality of making the first and last items selectable by refactoring out the empty items into a view with
+ * margin on the first/last couple of items! The margins will not be modifiable correctly during scrolling and thus messing up the selected item because some
+ * items will have the bigger margin of the first/last items due to the listView's reusing of item view layouts.
+ */
+public class ScrollPicker extends RelativeLayout {
+
+    public static final int LAYOUT = R.layout.scroll_picker;
+
+    public static final int DISPLAYED_ITEM_COUNT_DEFAULT = 3;
+    public static final boolean IS_SET_NEXT_OR_PREVIOUS_ITEM_ENABLED = true;
+    public static final int SCROLL_STOP_CHECK_INTERVAL_MS = 20;
+    public static final int POSITIVE_SCROLL_CORRECTION = 1;
+    public static final int TEXT_SIZE = 18;
+    public static final int SELECTOR_HEIGHT_CORRECTION = 1;
+    private final float TOUCH_SLOP = ViewConfiguration.get( getContext() ).getScaledTouchSlop();
+
+    protected ArrayList items;
+    private Rect selectPreviousItemRect;
+    private Rect selectNextItemRect;
+    private ListItemType listItemType;
+    private NestedScrollView scrollView;
+    private Context context;
+    private int itemsToShow = DISPLAYED_ITEM_COUNT_DEFAULT;
+    private int middleItemIndex, cellHeight;
+    private List< OnValueChangeListener > onValueChangeListeners = new LinkedList<>();
+    private Paint selectorPaint;
+    private Rect selectorRect;
+    private float mStartY;
+    private boolean isExternalValueChange = true;
+    private boolean isOnSizeChangedFinished = false;
+    private boolean isListInited = false;
+    private int selectedIndex = 0;
+    private Runnable scrollerTask;
+    private int lastScrollY;
+    private boolean isOnlyCorrectionNecessaryInScrollStop;
+
+    public ScrollPicker( Context context ) {
+        this( context, null );
+    }
+
+    public ScrollPicker( Context context, AttributeSet attrs ) {
+        this( context, attrs, 0 );
+    }
+
+    public ScrollPicker( Context context, AttributeSet attrs, int defStyle ) {
+        super( context, attrs, defStyle );
+        this.context = context;
+        setWillNotDraw( false );
+        readAttributes( attrs );
+        init();
+    }
+
+    // external setValue, no need to trigger value changed callback
+    public void setValue( int value ) {
+        isExternalValueChange = true;
+        switch( listItemType ) {
+            case INT:
+                selectItem( value - ( getIntItems() ).get( 0 ) );
+                break;
+            case STRING:
+                selectItem( value );
+                break;
+        }
+        if( isInited() ){
+            scrollView.scrollTo( 0, selectedIndex * cellHeight );
+            invalidate();
+        }
+        isExternalValueChange = false;
+    }
+
+    public void setList( ListItemType listItemType, ArrayList items ) {
+        isListInited = true;
+        this.listItemType = listItemType;
+        this.items = new ArrayList( items );
+        initScrollView();
+    }
+
+    public void addOnValueChangedListener( OnValueChangeListener onValueChangeListener ) {
+        onValueChangeListeners.add( onValueChangeListener );
+    }
+
+    public void setShownItemCount( int itemsToShow ) {
+        this.itemsToShow = itemsToShow;
+        middleItemIndex = itemsToShow / 2;
+    }
+
+    public void removeOnValueChangedListener( OnValueChangeListener onValueChangeListener ) {
+        onValueChangeListeners.remove( onValueChangeListener );
+    }
+
+    // go 1 down or up on touching above or below the selection area
+    @Override
+    public boolean dispatchTouchEvent( MotionEvent event ) {
+        switch( event.getAction() ) {
+            case MotionEvent.ACTION_DOWN:
+                mStartY = event.getY();
+                break;
+            case MotionEvent.ACTION_CANCEL:
+            case MotionEvent.ACTION_UP:
+                float y = event.getY();
+                float yDeltaTotal = y - mStartY;
+                if( Math.abs( yDeltaTotal ) < TOUCH_SLOP ) { // we aren't scrolling
+                    isOnlyCorrectionNecessaryInScrollStop = true;
+                    restartScrollStopCheck();
+                    return onTouchEvent( event );
+                } else {
+                    isOnlyCorrectionNecessaryInScrollStop = false;
+                    lastScrollY = scrollView.getScrollY();
+                    restartScrollStopCheck();
+                }
+                break;
+            case MotionEvent.ACTION_MOVE:
+                break;
+        }
+        return super.dispatchTouchEvent( event );
+    }
+
+    @Override
+    protected void dispatchDraw( Canvas canvas ) {
+        super.dispatchDraw( canvas );
+        canvas.drawRect( selectorRect, selectorPaint );
+    }
+
+    @Override
+    public boolean onTouchEvent( MotionEvent event ) {
+        if( IS_SET_NEXT_OR_PREVIOUS_ITEM_ENABLED ) {
+            float x = event.getX();
+            float y = event.getY();
+            if( selectPreviousItemRect.contains( (int)x, (int)y ) ) {
+                selectPreviousItem();
+            }
+            if( selectNextItemRect.contains( (int)x, (int)y ) ) {
+                selectNextItem();
+            }
+            invalidate();
+        }
+        return false;
+    }
+
+    @Override
+    protected void onSizeChanged( int w, int h, int oldw, int oldh ) {
+        super.onSizeChanged( w, h, oldw, oldh );
+        isOnSizeChangedFinished = true;
+        if( w > 0 )
+            initSelectorAndCellHeight();
+    }
+
+    protected void restartScrollStopCheck() {
+        postDelayed( scrollerTask, SCROLL_STOP_CHECK_INTERVAL_MS );
+    }
+
+    protected void readAttributes( AttributeSet attrs ) {
+        TypedArray attributesArray = context.obtainStyledAttributes( attrs, R.styleable.ScrollPicker );
+        // selector color
+        setShownItemCount( attributesArray.getInt( R.styleable.ScrollPicker_itemsToShow, DISPLAYED_ITEM_COUNT_DEFAULT ) );
+        attributesArray.recycle();
+    }
+
+    private void init() {
+        LayoutInflater inflater = (LayoutInflater)context.getSystemService( Context.LAYOUT_INFLATER_SERVICE );
+        inflater.inflate( LAYOUT, this, true );
+        selectorPaint = new Paint();
+        selectorPaint.setColor( Color.parseColor( "#116b2b66" ) );
+        selectorPaint.setStyle( Paint.Style.FILL );
+
+        scrollerTask = new Runnable() {
+            public void run() {
+                int newPosition = scrollView.getScrollY();
+                if( lastScrollY == newPosition ) {//has stopped
+                    selectNearestItemOnScrollStop();
+                } else {
+                    lastScrollY = scrollView.getScrollY();
+                    restartScrollStopCheck();
+                }
+            }
+        };
+        scrollView = findViewById( R.id.scrollView );
+    }
+
+    private void selectNearestItemOnScrollStop() {
+        int firstSelectedItemIndex = scrollView.getScrollY() / cellHeight;
+        int firstVisibleItemIndex = firstSelectedItemIndex - ( middleItemIndex - 1 );
+        LinearLayout verticalLayout = (LinearLayout)scrollView.getChildAt( 0 );
+        View child = verticalLayout.getChildAt( firstVisibleItemIndex );
+        Rect rect = new Rect( 0, 0, child.getWidth(), child.getHeight() );
+        verticalLayout.getChildVisibleRect( child, rect, null );
+        // which item should be selected? the item above or below the selection area?
+        // we know by checking how much height of the firstVisibleItemIndex is visible
+        int visibleHeightOfItem = ( rect.height() > cellHeight ) ? rect.height() % cellHeight : rect.height();
+        if( Math.abs( visibleHeightOfItem ) <= cellHeight / 2 ) { // % cellHeight: the space view'a height is multiple of cellHeight
+            scrollView.scrollBy( 0, visibleHeightOfItem + POSITIVE_SCROLL_CORRECTION );
+            if( !isOnlyCorrectionNecessaryInScrollStop )
+                selectItem( firstSelectedItemIndex + 1 ); // select next item
+        } else {
+            scrollView.scrollBy( 0, visibleHeightOfItem - cellHeight );
+            if( !isOnlyCorrectionNecessaryInScrollStop )
+                selectItem( firstSelectedItemIndex );
+        }
+    }
+
+    private void initSelectorAndCellHeight() {
+        cellHeight = (int)Math.round( (double)getHeight() / (double)itemsToShow );
+        if( cellHeight > 0 ) {
+            int cellHeightCeiling = (int)Math.ceil( (double)getHeight() / (double)itemsToShow );
+            selectorRect = new Rect( 0, cellHeightCeiling * middleItemIndex - SELECTOR_HEIGHT_CORRECTION,
+                    getWidth(), cellHeightCeiling * ( middleItemIndex + 1 ) );
+            selectPreviousItemRect = new Rect( 0, 0, getWidth(), cellHeight * middleItemIndex );
+            selectNextItemRect = new Rect( 0, getHeight() - cellHeight * middleItemIndex, getWidth(), getHeight() );
+            post( new Runnable() {
+                @Override
+                public void run() {
+                    initScrollView();
+                }
+            } );
+        }
+    }
+
+    private void initScrollView() {
+        if( isInited() ) {
+            scrollView.removeAllViews();
+            LinearLayout scrollViewParent = new LinearLayout( getContext() );
+            scrollViewParent.setOrientation( LinearLayout.VERTICAL );
+
+            scrollViewParent.addView( getSpace() );
+            for( int i = 0; i < items.size(); ++i )
+                scrollViewParent.addView( getTextView( i ) );
+            scrollViewParent.addView( getSpace() );
+
+            scrollView.addView( scrollViewParent );
+            scrollViewParent.getViewTreeObserver().addOnPreDrawListener( new ViewTreeObserver.OnPreDrawListener() {
+                public boolean onPreDraw() {
+                    scrollView.getViewTreeObserver().removeOnPreDrawListener( this );
+                    scrollView.scrollTo( 0, selectedIndex * cellHeight );
+                    return false;
+                }
+            });
+        }
+    }
+
+    private View getSpace() {
+        Space space = new Space( getContext() );
+        space.setLayoutParams( new LinearLayout.LayoutParams( LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT ) );
+        ViewGroup.MarginLayoutParams p = (ViewGroup.MarginLayoutParams)space.getLayoutParams();
+        p.height = cellHeight * middleItemIndex;
+        space.setLayoutParams( p );
+        return space;
+    }
+
+    private boolean isInited() {
+        return isOnSizeChangedFinished && isListInited;
+    }
+
+    @NonNull
+    private TextView getTextView( int i ) {
+        TextView textView = new TextView( getContext() );
+        switch( listItemType ) {
+            case INT:
+                textView.setText( "" + getIntItems().get( i ) );
+                break;
+            case STRING:
+                textView.setText( getStringItems().get( i ) );
+                break;
+        }
+        textView.setLayoutParams( new LinearLayout.LayoutParams( LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT ) );
+        textView.setTextSize( TypedValue.COMPLEX_UNIT_SP, TEXT_SIZE );
+        textView.setBackgroundColor( Color.WHITE );
+        textView.setGravity( CENTER );
+        ViewGroup.MarginLayoutParams p = (ViewGroup.MarginLayoutParams)textView.getLayoutParams();
+        p.height = cellHeight;
+        textView.setLayoutParams( p );
+        return textView;
+    }
+
+    private ArrayList< String > getStringItems() {
+        return (ArrayList< String >)items;
+    }
+
+    private void selectNextItem() {
+        if( selectedIndex < items.size() - 1 ) {
+            scrollView.scrollBy( 0, cellHeight );
+            selectItem( selectedIndex + 1 );
+        }
+    }
+
+    private void selectPreviousItem() {
+        if( selectedIndex > 0 ) {
+            scrollView.scrollBy( 0, -cellHeight );
+            selectItem( selectedIndex - 1 );
+        }
+    }
+
+    private void selectItem( int newIndex ) {
+        if( !isExternalValueChange && selectedIndex != newIndex ) {
+            for( OnValueChangeListener l : onValueChangeListeners )
+                sendOnValueChanged( newIndex, l );
+        }
+        selectedIndex = newIndex;
+    }
+
+    // if we use the Int implementation, send the Value itself, otherwise send the index of the selected String
+    private void sendOnValueChanged( int newIndex, OnValueChangeListener l ) {
+        l.onValueChange( listItemType == ListItemType.STRING ?
+                newIndex :
+                getIntItems().get( newIndex ) );
+    }
+
+    private ArrayList< Integer > getIntItems() {
+        return (ArrayList< Integer >)items;
+    }
+
+    public enum ListItemType {
+        INT, STRING
+    }
+
+    public interface OnValueChangeListener {
+
+        void onValueChange( int newValue ); // if we use the Int implementation, send the Value itself, otherwise send the index of the selected String
+    }
+
+}

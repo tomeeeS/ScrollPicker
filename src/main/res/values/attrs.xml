@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <declare-styleable name="ScrollPicker">
+        <attr name="selectorColor" format="string"/>
+        <attr name="itemsToShow" format="integer"/>
+    </declare-styleable>
+</resources>
