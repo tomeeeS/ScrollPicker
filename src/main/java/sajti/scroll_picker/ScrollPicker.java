@@ -1,5 +1,6 @@
 package sajti.scroll_picker;
 
+import android.animation.ObjectAnimator;
 import android.content.Context;
 import android.content.res.TypedArray;
 import android.graphics.Canvas;
@@ -17,6 +18,7 @@ import android.view.View;
 import android.view.ViewConfiguration;
 import android.view.ViewGroup;
 import android.view.ViewTreeObserver;
+import android.view.animation.LinearInterpolator;
 import android.widget.LinearLayout;
 import android.widget.RelativeLayout;
 import android.widget.TextView;
@@ -24,6 +26,7 @@ import android.widget.TextView;
 import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static android.view.Gravity.CENTER;
 
@@ -45,6 +48,7 @@ public class ScrollPicker extends RelativeLayout {
     public static final int POSITIVE_SCROLL_CORRECTION = 1;
     public static final int TEXT_SIZE = 18;
     public static final int SELECTOR_HEIGHT_CORRECTION = 1;
+    public static final int SCROLL_BY_DURATION_DEFAULT = 120;
     private final float TOUCH_SLOP = ViewConfiguration.get( getContext() ).getScaledTouchSlop();
 
     protected ArrayList items;
@@ -54,7 +58,8 @@ public class ScrollPicker extends RelativeLayout {
     private NestedScrollView scrollView;
     private Context context;
     private int itemsToShow = SHOWN_ITEM_COUNT_DEFAULT;
-    private int middleItemIndex, cellHeight;
+    private int spaceCellCount; // how many cells equate to the height of the space before (and after) the text views
+    private int cellHeight;
     private List< OnValueChangeListener > onValueChangeListeners = new LinkedList<>();
     private Paint selectorPaint;
     private Rect selectorRect;
@@ -65,7 +70,7 @@ public class ScrollPicker extends RelativeLayout {
     private int selectedIndex = 0;
     private Runnable scrollerTask;
     private int lastScrollY;
-    private boolean isOnlyCorrectionNecessaryInScrollStop;
+    private AtomicInteger scrollYTo = new AtomicInteger();
 
     public ScrollPicker( Context context ) {
         this( context, null );
@@ -94,11 +99,18 @@ public class ScrollPicker extends RelativeLayout {
                 selectItem( value );
                 break;
         }
-        if( isInited() ){
-            scrollView.scrollTo( 0, selectedIndex * cellHeight );
+        if( isInited() ) {
+            scrollYTo( selectedIndex * cellHeight );
             invalidate();
         }
         isExternalValueChange = false;
+    }
+
+    private void scrollYTo( int scrollYTo ) {
+        ObjectAnimator scrollYAnimator = ObjectAnimator.ofInt( scrollView, "scrollY", scrollYTo ).
+                setDuration( SCROLL_BY_DURATION_DEFAULT );
+        scrollYAnimator.setInterpolator( new LinearInterpolator() );
+        scrollYAnimator.start();
     }
 
     public void setList( ListItemType listItemType, ArrayList items ) {
@@ -114,18 +126,18 @@ public class ScrollPicker extends RelativeLayout {
 
     public void setShownItemCount( int itemsToShow ) {
         this.itemsToShow = itemsToShow;
-        middleItemIndex = itemsToShow / 2;
+        spaceCellCount = itemsToShow / 2;
     }
 
     public void removeOnValueChangedListener( OnValueChangeListener onValueChangeListener ) {
         onValueChangeListeners.remove( onValueChangeListener );
     }
 
-    // go 1 down or up on touching above or below the selection area
+    // corrections are necessary at the end of scrolling to set ourself to a valid position
     @Override
     public boolean dispatchTouchEvent( MotionEvent event ) {
         switch( event.getAction() ) {
-            case MotionEvent.ACTION_DOWN: // this isn't going down ;)
+            case MotionEvent.ACTION_DOWN: // this isn't for going down ;)
                 mStartY = event.getY();
                 break;
             case MotionEvent.ACTION_CANCEL:
@@ -133,11 +145,8 @@ public class ScrollPicker extends RelativeLayout {
                 float y = event.getY();
                 float yDeltaTotal = y - mStartY;
                 if( Math.abs( yDeltaTotal ) < TOUCH_SLOP ) { // we aren't scrolling
-                    isOnlyCorrectionNecessaryInScrollStop = true;
-                    restartScrollStopCheck();
                     return onTouchEvent( event );
                 } else {
-                    isOnlyCorrectionNecessaryInScrollStop = false;
                     lastScrollY = scrollView.getScrollY();
                     restartScrollStopCheck();
                 }
@@ -154,6 +163,7 @@ public class ScrollPicker extends RelativeLayout {
         canvas.drawRect( selectorRect, selectorPaint );
     }
 
+    // go 1 down or up on touching above or below the selection area
     @Override
     public boolean onTouchEvent( MotionEvent event ) {
         if( IS_SET_NEXT_OR_PREVIOUS_ITEM_ENABLED ) {
@@ -199,7 +209,8 @@ public class ScrollPicker extends RelativeLayout {
         scrollerTask = new Runnable() {
             public void run() {
                 int newPosition = scrollView.getScrollY();
-                if( lastScrollY == newPosition ) { //has stopped
+                if( lastScrollY == newPosition ) { // has stopped
+                    scrollYTo.set( lastScrollY );
                     selectNearestItemOnScrollStop();
                 } else {
                     lastScrollY = scrollView.getScrollY();
@@ -212,11 +223,11 @@ public class ScrollPicker extends RelativeLayout {
 
     private void selectNearestItemOnScrollStop() {
         LinearLayout verticalLayout = (LinearLayout)scrollView.getChildAt( 0 );
-        int firstSelectedItemIndex = scrollView.getScrollY() / cellHeight;
-        int spaceHeight = middleItemIndex * cellHeight;
+        int cellCount = scrollView.getScrollY() / cellHeight;
+        int spaceHeight = spaceCellCount * cellHeight;
         int firstVisibleItemIndex;
         if( scrollView.getScrollY() > spaceHeight )
-            firstVisibleItemIndex = firstSelectedItemIndex - ( middleItemIndex - 1 );
+            firstVisibleItemIndex = cellCount - ( spaceCellCount - 1 );
         else
             firstVisibleItemIndex = 0;
         View child = verticalLayout.getChildAt( firstVisibleItemIndex );
@@ -226,32 +237,23 @@ public class ScrollPicker extends RelativeLayout {
         // which item should be selected? the item above or below the selection area?
         // we know by checking how much height of the view of firstVisibleItemIndex is visible
         int visibleHeightOfItem = ( rect.height() > cellHeight ) ? rect.height() % cellHeight : rect.height();
-        int scrollYby, selectItemIndex;
+        int scrollYby;
         if( Math.abs( visibleHeightOfItem ) <= cellHeight / 2 ) { // % cellHeight: the space view's height is multiple of cellHeight
             scrollYby = visibleHeightOfItem + POSITIVE_SCROLL_CORRECTION;
-            selectItemIndex = firstVisibleItemIndex + 1; // select next item
-            selectItem( scrollYby, selectItemIndex );
         } else {
             scrollYby = visibleHeightOfItem - cellHeight;
-            selectItemIndex = firstVisibleItemIndex;
-            selectItem( scrollYby, selectItemIndex );
         }
-    }
-
-    private void selectItem( int scrollYby, int selectItemIndex ) {
-        scrollView.scrollBy( 0, scrollYby );
-        if( !isOnlyCorrectionNecessaryInScrollStop )
-            selectItem( selectItemIndex );
+        scrollYBy( scrollYby );
     }
 
     private void initSelectorAndCellHeight() {
         cellHeight = (int)Math.round( (double)getHeight() / (double)itemsToShow );
         if( cellHeight > 0 ) {
             int cellHeightCeiling = (int)Math.ceil( (double)getHeight() / (double)itemsToShow );
-            selectorRect = new Rect( 0, cellHeightCeiling * middleItemIndex - SELECTOR_HEIGHT_CORRECTION,
-                    getWidth(), cellHeightCeiling * ( middleItemIndex + 1 ) );
-            selectPreviousItemRect = new Rect( 0, 0, getWidth(), cellHeight * middleItemIndex );
-            selectNextItemRect = new Rect( 0, getHeight() - cellHeight * middleItemIndex, getWidth(), getHeight() );
+            selectorRect = new Rect( 0, cellHeightCeiling * spaceCellCount - SELECTOR_HEIGHT_CORRECTION,
+                    getWidth(), cellHeightCeiling * ( spaceCellCount + 1 ) );
+            selectPreviousItemRect = new Rect( 0, 0, getWidth(), cellHeight * spaceCellCount );
+            selectNextItemRect = new Rect( 0, getHeight() - cellHeight * spaceCellCount, getWidth(), getHeight() );
             post( new Runnable() {
                 @Override
                 public void run() {
@@ -276,18 +278,20 @@ public class ScrollPicker extends RelativeLayout {
             scrollViewParent.getViewTreeObserver().addOnPreDrawListener( new ViewTreeObserver.OnPreDrawListener() {
                 public boolean onPreDraw() {
                     scrollView.getViewTreeObserver().removeOnPreDrawListener( this );
-                    scrollView.scrollTo( 0, selectedIndex * cellHeight );
+                    int scrollYTo = selectedIndex * cellHeight;
+                    scrollView.scrollTo( 0, scrollYTo );
+                    ScrollPicker.this.scrollYTo.set( scrollYTo );
                     return false;
                 }
-            });
+            } );
         }
     }
 
     private View getSpace() {
-        Space space = new Space( getContext() );
+        Space space = new Space( getContext() ); // TODO
         space.setLayoutParams( new LinearLayout.LayoutParams( LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT ) );
         ViewGroup.MarginLayoutParams p = (ViewGroup.MarginLayoutParams)space.getLayoutParams();
-        p.height = cellHeight * middleItemIndex;
+        p.height = cellHeight * spaceCellCount;
         space.setLayoutParams( p );
         return space;
     }
@@ -323,16 +327,23 @@ public class ScrollPicker extends RelativeLayout {
 
     private void selectNextItem() {
         if( selectedIndex < items.size() - 1 ) {
-            scrollView.scrollBy( 0, cellHeight );
-            selectItem( selectedIndex + 1 );
+            scrollYBy( cellHeight );
+//            selectItem( selectedIndex + 1 );
         }
     }
 
     private void selectPreviousItem() {
         if( selectedIndex > 0 ) {
-            scrollView.scrollBy( 0, -cellHeight );
-            selectItem( selectedIndex - 1 );
+            scrollYBy( -cellHeight );
+//            selectItem( selectedIndex - 1 );
         }
+    }
+
+    private void scrollYBy( int scrollYby ) {
+        scrollYTo.set( scrollYTo.get() + scrollYby );
+        scrollYTo( scrollYTo.get() );
+
+        selectItem( scrollYTo.get() / cellHeight );
     }
 
     private void selectItem( int newIndex ) {
