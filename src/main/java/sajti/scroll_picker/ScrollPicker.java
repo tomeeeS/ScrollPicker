@@ -9,7 +9,6 @@ import android.graphics.Paint;
 import android.graphics.Rect;
 import android.support.annotation.NonNull;
 import android.support.v4.widget.NestedScrollView;
-import android.support.v4.widget.Space;
 import android.util.AttributeSet;
 import android.util.TypedValue;
 import android.view.LayoutInflater;
@@ -20,7 +19,7 @@ import android.view.ViewGroup;
 import android.view.ViewTreeObserver;
 import android.view.animation.LinearInterpolator;
 import android.widget.LinearLayout;
-import android.widget.RelativeLayout;
+import android.widget.Space;
 import android.widget.TextView;
 
 import java.util.ArrayList;
@@ -38,7 +37,7 @@ import static android.view.Gravity.CENTER;
  * margin on the first/last couple of items! The margins will not be modifiable correctly during scrolling and thus messing up the selected item because some
  * items will have the bigger margin of the first/last items due to the listView's reusing of item view layouts.
  */
-public class ScrollPicker extends RelativeLayout {
+public class ScrollPicker extends LinearLayout {
 
     public static final int LAYOUT = R.layout.scroll_picker;
 
@@ -46,9 +45,11 @@ public class ScrollPicker extends RelativeLayout {
     public static final boolean IS_SET_NEXT_OR_PREVIOUS_ITEM_ENABLED = true;
     public static final int SCROLL_STOP_CHECK_INTERVAL_MS = 20;
     public static final int POSITIVE_SCROLL_CORRECTION = 1;
-    public static final int TEXT_SIZE = 18;
+    public static final int TEXT_SIZE_DEFAULT = 18;
     public static final int SELECTOR_HEIGHT_CORRECTION = 1;
     public static final int SCROLL_BY_DURATION_DEFAULT = 120;
+    public static final int SELECTOR_COLOR_DEFAULT = Color.parseColor( "#116b2b66" );
+    public static final int TEXT_COLOR_DEFAULT = Color.BLACK;
     private final float TOUCH_SLOP = ViewConfiguration.get( getContext() ).getScaledTouchSlop();
 
     protected ArrayList items;
@@ -71,6 +72,8 @@ public class ScrollPicker extends RelativeLayout {
     private Runnable scrollerTask;
     private int lastScrollY;
     private AtomicInteger scrollYTo = new AtomicInteger();
+    private float textSize;
+    private int textColor;
 
     public ScrollPicker( Context context ) {
         this( context, null );
@@ -84,8 +87,8 @@ public class ScrollPicker extends RelativeLayout {
         super( context, attrs, defStyle );
         this.context = context;
         setWillNotDraw( false );
-        readAttributes( attrs );
         init();
+        initValues( attrs );
     }
 
     // external setValue, no need to trigger value changed callback
@@ -106,11 +109,13 @@ public class ScrollPicker extends RelativeLayout {
         isExternalValueChange = false;
     }
 
-    private void scrollYTo( int scrollYTo ) {
-        ObjectAnimator scrollYAnimator = ObjectAnimator.ofInt( scrollView, "scrollY", scrollYTo ).
-                setDuration( SCROLL_BY_DURATION_DEFAULT );
-        scrollYAnimator.setInterpolator( new LinearInterpolator() );
-        scrollYAnimator.start();
+    public void setSelectorColor( int selectorColor ) {
+        selectorPaint.setColor( selectorColor );
+    }
+
+    public void setTextSize( float textSize ) {
+        this.textSize = textSize;
+        initScrollView();
     }
 
     public void setList( ListItemType listItemType, ArrayList items ) {
@@ -127,6 +132,13 @@ public class ScrollPicker extends RelativeLayout {
     public void setShownItemCount( int itemsToShow ) {
         this.itemsToShow = itemsToShow;
         spaceCellCount = itemsToShow / 2;
+        initSelectorAndCellHeight();
+        initScrollView();
+    }
+
+    public void setTextColor( int textColor ) {
+        this.textColor = textColor;
+        initScrollView();
     }
 
     public void removeOnValueChangedListener( OnValueChangeListener onValueChangeListener ) {
@@ -159,8 +171,8 @@ public class ScrollPicker extends RelativeLayout {
 
     @Override
     protected void dispatchDraw( Canvas canvas ) {
-        super.dispatchDraw( canvas );
         canvas.drawRect( selectorRect, selectorPaint );
+        super.dispatchDraw( canvas );
     }
 
     // go 1 down or up on touching above or below the selection area
@@ -179,7 +191,6 @@ public class ScrollPicker extends RelativeLayout {
         }
         return false;
     }
-
     @Override
     protected void onSizeChanged( int w, int h, int oldw, int oldh ) {
         super.onSizeChanged( w, h, oldw, oldh );
@@ -188,23 +199,31 @@ public class ScrollPicker extends RelativeLayout {
             initSelectorAndCellHeight();
     }
 
-    protected void restartScrollStopCheck() {
+    private void restartScrollStopCheck() {
         postDelayed( scrollerTask, SCROLL_STOP_CHECK_INTERVAL_MS );
     }
 
-    protected void readAttributes( AttributeSet attrs ) {
+    private void initValues( AttributeSet attrs ) {
         TypedArray attributesArray = context.obtainStyledAttributes( attrs, R.styleable.ScrollPicker );
-        // todo: selector color
-        setShownItemCount( attributesArray.getInt( R.styleable.ScrollPicker_itemsToShow, SHOWN_ITEM_COUNT_DEFAULT ) );
+        setSelectorColor( attributesArray.getColor( R.styleable.ScrollPicker_selectorColor, SELECTOR_COLOR_DEFAULT ) );
+        selectorPaint.setStyle( Paint.Style.FILL );
+        itemsToShow = attributesArray.getInt( R.styleable.ScrollPicker_itemsToShow, SHOWN_ITEM_COUNT_DEFAULT );
+        textSize = attributesArray.getFloat( R.styleable.ScrollPicker_textSize, TEXT_SIZE_DEFAULT );
+        textColor = attributesArray.getInt( R.styleable.ScrollPicker_textColor, TEXT_COLOR_DEFAULT );
         attributesArray.recycle();
+    }
+
+    private void scrollYTo( int scrollYTo ) {
+        ObjectAnimator scrollYAnimator = ObjectAnimator.ofInt( scrollView, "scrollY", scrollYTo ).
+                setDuration( SCROLL_BY_DURATION_DEFAULT );
+        scrollYAnimator.setInterpolator( new LinearInterpolator() );
+        scrollYAnimator.start();
     }
 
     private void init() {
         LayoutInflater inflater = (LayoutInflater)context.getSystemService( Context.LAYOUT_INFLATER_SERVICE );
         inflater.inflate( LAYOUT, this, true );
         selectorPaint = new Paint();
-        selectorPaint.setColor( Color.parseColor( "#116b2b66" ) );
-        selectorPaint.setStyle( Paint.Style.FILL );
 
         scrollerTask = new Runnable() {
             public void run() {
@@ -250,10 +269,18 @@ public class ScrollPicker extends RelativeLayout {
         cellHeight = (int)Math.round( (double)getHeight() / (double)itemsToShow );
         if( cellHeight > 0 ) {
             int cellHeightCeiling = (int)Math.ceil( (double)getHeight() / (double)itemsToShow );
-            selectorRect = new Rect( 0, cellHeightCeiling * spaceCellCount - SELECTOR_HEIGHT_CORRECTION,
-                    getWidth(), cellHeightCeiling * ( spaceCellCount + 1 ) );
-            selectPreviousItemRect = new Rect( 0, 0, getWidth(), cellHeight * spaceCellCount );
-            selectNextItemRect = new Rect( 0, getHeight() - cellHeight * spaceCellCount, getWidth(), getHeight() );
+            selectorRect = new Rect( 0,
+                    cellHeightCeiling * spaceCellCount - SELECTOR_HEIGHT_CORRECTION,
+                    getWidth(),
+                    cellHeightCeiling * ( spaceCellCount + 1 ) );
+            selectPreviousItemRect = new Rect( 0,
+                    0,
+                    getWidth(),
+                    cellHeight * spaceCellCount );
+            selectNextItemRect = new Rect( 0,
+                    getHeight() - cellHeight * spaceCellCount,
+                    getWidth(),
+                    getHeight() );
             post( new Runnable() {
                 @Override
                 public void run() {
@@ -269,10 +296,13 @@ public class ScrollPicker extends RelativeLayout {
             LinearLayout scrollViewParent = new LinearLayout( getContext() );
             scrollViewParent.setOrientation( LinearLayout.VERTICAL );
 
-            scrollViewParent.addView( getSpace() );
+            int spaceHeight = cellHeight * spaceCellCount;
+            scrollViewParent.addView( getSpace( spaceHeight ) );
             for( int i = 0; i < items.size(); ++i )
                 scrollViewParent.addView( getTextView( i ) );
-            scrollViewParent.addView( getSpace() );
+            if( itemsToShow % 2 == 0 )
+                spaceHeight -= cellHeight;
+            scrollViewParent.addView( getSpace( spaceHeight ) );
 
             scrollView.addView( scrollViewParent );
             scrollViewParent.getViewTreeObserver().addOnPreDrawListener( new ViewTreeObserver.OnPreDrawListener() {
@@ -287,11 +317,11 @@ public class ScrollPicker extends RelativeLayout {
         }
     }
 
-    private View getSpace() {
+    private View getSpace( int height ) {
         Space space = new Space( getContext() ); // TODO
         space.setLayoutParams( new LinearLayout.LayoutParams( LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT ) );
         ViewGroup.MarginLayoutParams p = (ViewGroup.MarginLayoutParams)space.getLayoutParams();
-        p.height = cellHeight * spaceCellCount;
+        p.height = height;
         space.setLayoutParams( p );
         return space;
     }
@@ -312,8 +342,8 @@ public class ScrollPicker extends RelativeLayout {
                 break;
         }
         textView.setLayoutParams( new LinearLayout.LayoutParams( LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT ) );
-        textView.setTextSize( TypedValue.COMPLEX_UNIT_SP, TEXT_SIZE );
-        textView.setBackgroundColor( Color.WHITE );
+        textView.setTextSize( TypedValue.COMPLEX_UNIT_SP, textSize );
+        textView.setTextColor( textColor );
         textView.setGravity( CENTER );
         ViewGroup.MarginLayoutParams p = (ViewGroup.MarginLayoutParams)textView.getLayoutParams();
         p.height = cellHeight;
