@@ -4,6 +4,7 @@
         <attr name="selectorColor" format="integer"/>
         <attr name="textColor" format="integer"/>
         <attr name="itemsToShow" format="integer"/>
+        <attr name="value" format="integer"/>
         <attr name="textSize" format="float"/>
     </declare-styleable>
 </resources>

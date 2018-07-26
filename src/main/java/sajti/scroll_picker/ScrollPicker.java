@@ -93,20 +93,26 @@ public class ScrollPicker extends LinearLayout {
 
     // external setValue, no need to trigger value changed callback
     public void setValue( int value ) {
-        isExternalValueChange = true;
-        switch( listItemType ) {
-            case INT:
-                selectItem( value - ( getIntItems() ).get( 0 ) );
-                break;
-            case STRING:
-                selectItem( value );
-                break;
+        if( value != selectedIndex ) {
+            isExternalValueChange = true;
+            switch( listItemType ) {
+                case INT:
+                    selectItem( value - ( getIntItems() ).get( 0 ) );
+                    break;
+                case STRING:
+                    selectItem( value );
+                    break;
+            }
+            if( isInited() ) {
+                scrollYTo( selectedIndex * cellHeight );
+                invalidate();
+            }
+            isExternalValueChange = false;
         }
-        if( isInited() ) {
-            scrollYTo( selectedIndex * cellHeight );
-            invalidate();
-        }
-        isExternalValueChange = false;
+    }
+
+    public int getValue() {
+        return selectedIndex;
     }
 
     public void setSelectorColor( int selectorColor ) {
@@ -144,8 +150,8 @@ public class ScrollPicker extends LinearLayout {
     public void removeOnValueChangedListener( OnValueChangeListener onValueChangeListener ) {
         onValueChangeListeners.remove( onValueChangeListener );
     }
-
     // corrections are necessary at the end of scrolling to set ourself to a valid position
+
     @Override
     public boolean dispatchTouchEvent( MotionEvent event ) {
         switch( event.getAction() ) {
