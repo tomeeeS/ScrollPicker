@@ -13,10 +13,10 @@ android {
         testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
 
     }
-//    compileOptions {
-//        sourceCompatibility JavaVersion.VERSION_1_8
-//        targetCompatibility JavaVersion.VERSION_1_8
-//    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
     buildTypes {
         release {
             minifyEnabled false
@@ -32,6 +32,9 @@ android {
 dependencies {
     implementation fileTree(include: ['*.jar'], dir: 'libs')
     implementation 'com.android.support:appcompat-v7:27.1.1'
+
+    //    android-retrostreams: enables us to use streams below api level 24 in java 8. (unlike streamsupport lib which is for java 6 & 7)
+    implementation 'net.sourceforge.streamsupport:android-retrostreams:1.6.3'
 }
 repositories {
     mavenCentral()

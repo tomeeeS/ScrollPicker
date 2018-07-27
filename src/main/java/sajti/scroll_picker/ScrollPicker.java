@@ -3,6 +3,9 @@ package sajti.scroll_picker;
 import android.animation.ObjectAnimator;
 import android.content.Context;
 import android.content.res.TypedArray;
+import android.databinding.BindingAdapter;
+import android.databinding.InverseBindingAdapter;
+import android.databinding.InverseBindingListener;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
@@ -68,7 +71,7 @@ public class ScrollPicker extends LinearLayout {
     private boolean isExternalValueChange = true;
     private boolean isOnSizeChangedFinished = false;
     private boolean isListInited = false;
-    private int selectedIndex = 0;
+    private Integer selectedIndex = 0;
     private Runnable scrollerTask;
     private int lastScrollY;
     private AtomicInteger scrollYTo = new AtomicInteger();
@@ -92,8 +95,8 @@ public class ScrollPicker extends LinearLayout {
     }
 
     // external setValue, no need to trigger value changed callback
-    public void setValue( int value ) {
-        if( value != selectedIndex ) {
+    public void setValue( Integer value ) {
+        if( !value.equals( selectedIndex ) ) {
             isExternalValueChange = true;
             switch( listItemType ) {
                 case INT:
@@ -111,9 +114,35 @@ public class ScrollPicker extends LinearLayout {
         }
     }
 
-    public int getValue() {
+    public Integer getValue() {
         return selectedIndex;
     }
+
+
+
+    private static Integer lastGetValue; // it's for avoiding instant resetting of selectedIndex by bindingAdapter setValue in ScrollPickerValueBinding
+
+    @BindingAdapter( value = "valueAttrChanged" )
+    public static void setListener( ScrollPicker scrollPicker, final InverseBindingListener listener ) {
+        if( listener != null ) {
+            scrollPicker.addOnValueChangedListener( newValue -> listener.onChange() );
+        }
+    }
+
+    @BindingAdapter( "value" )
+    public static void setValue( ScrollPicker scrollPicker, Integer value ) {
+        if( lastGetValue == null || value != lastGetValue )
+            scrollPicker.setValue( value );
+    }
+
+    @InverseBindingAdapter( attribute = "value" )
+    public static Integer getValue( ScrollPicker scrollPicker ) {
+        lastGetValue = scrollPicker.getValue();
+        return lastGetValue;
+    }
+
+
+
 
     public void setSelectorColor( int selectorColor ) {
         selectorPaint.setColor( selectorColor );
@@ -384,10 +413,11 @@ public class ScrollPicker extends LinearLayout {
 
     private void selectItem( int newIndex ) {
         if( !isExternalValueChange && selectedIndex != newIndex ) {
+            selectedIndex = newIndex;
             for( OnValueChangeListener l : onValueChangeListeners )
                 sendOnValueChanged( newIndex, l );
-        }
-        selectedIndex = newIndex;
+        } else
+            selectedIndex = newIndex;
     }
 
     // if we use the Int implementation, send the Value itself, otherwise send the index of the selected String
