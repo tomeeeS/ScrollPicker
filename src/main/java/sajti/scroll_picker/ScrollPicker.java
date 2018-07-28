@@ -10,6 +10,7 @@ import android.graphics.Rect;
 import android.support.annotation.NonNull;
 import android.support.v4.widget.NestedScrollView;
 import android.util.AttributeSet;
+import android.util.Log;
 import android.util.TypedValue;
 import android.view.LayoutInflater;
 import android.view.MotionEvent;
@@ -112,7 +113,7 @@ public class ScrollPicker extends LinearLayout {
     }
 
     public Integer getValue() {
-        return selectedIndex;
+        return getValue( selectedIndex );
     }
 
     public void setSelectorColor( int selectorColor ) {
@@ -150,7 +151,6 @@ public class ScrollPicker extends LinearLayout {
     public void removeOnValueChangedListener( OnValueChangeListener onValueChangeListener ) {
         onValueChangeListeners.remove( onValueChangeListener );
     }
-    // corrections are necessary at the end of scrolling to set ourself to a valid position
 
     @Override
     public boolean dispatchTouchEvent( MotionEvent event ) {
@@ -207,6 +207,7 @@ public class ScrollPicker extends LinearLayout {
 
     private void restartScrollStopCheck() {
         postDelayed( scrollerTask, SCROLL_STOP_CHECK_INTERVAL_MS );
+        Log.d( "ScrollPicker", "restartScrollStopCheck" );
     }
 
     private void initValues( AttributeSet attrs ) {
@@ -234,6 +235,7 @@ public class ScrollPicker extends LinearLayout {
         scrollerTask = () -> {
             int newPosition = scrollView.getScrollY();
             if( lastScrollY == newPosition ) { // has stopped
+                Log.d( "ScrollPicker", "has stopped" );
                 scrollYTo.set( lastScrollY );
                 selectNearestItemOnScrollStop();
             } else {
@@ -244,6 +246,7 @@ public class ScrollPicker extends LinearLayout {
         scrollView = findViewById( R.id.scrollView );
     }
 
+    // corrections are necessary at the end of scrolling to set ourself to a valid position
     private void selectNearestItemOnScrollStop() {
         LinearLayout verticalLayout = (LinearLayout)scrollView.getChildAt( 0 );
         int cellCount = scrollView.getScrollY() / cellHeight;
@@ -259,9 +262,9 @@ public class ScrollPicker extends LinearLayout {
 
         // which item should be selected? the item above or below the selection area?
         // we know by checking how much height of the view of firstVisibleItemIndex is visible
-        int visibleHeightOfItem = ( rect.height() > cellHeight ) ? rect.height() % cellHeight : rect.height();
+        int visibleHeightOfItem = ( rect.height() > cellHeight ) ? rect.height() % cellHeight : rect.height(); // % cellHeight: the space view's height is multiple of cellHeight
         int scrollYby;
-        if( Math.abs( visibleHeightOfItem ) <= cellHeight / 2 ) { // % cellHeight: the space view's height is multiple of cellHeight
+        if( Math.abs( visibleHeightOfItem ) <= cellHeight / 2 ) {
             scrollYby = visibleHeightOfItem + POSITIVE_SCROLL_CORRECTION;
         } else {
             scrollYby = visibleHeightOfItem - cellHeight;
@@ -282,7 +285,7 @@ public class ScrollPicker extends LinearLayout {
                     getWidth(),
                     cellHeight * spaceCellCount );
             selectNextItemRect = new Rect( 0,
-                    getHeight() - cellHeight * spaceCellCount,
+                    selectorRect.bottom,
                     getWidth(),
                     getHeight() );
             post( new Runnable() {
@@ -322,7 +325,7 @@ public class ScrollPicker extends LinearLayout {
     }
 
     private View getSpace( int height ) {
-        Space space = new Space( getContext() ); // TODO
+        Space space = new Space( getContext() );
         space.setLayoutParams( new LinearLayout.LayoutParams( LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT ) );
         ViewGroup.MarginLayoutParams p = (ViewGroup.MarginLayoutParams)space.getLayoutParams();
         p.height = height;
@@ -390,9 +393,13 @@ public class ScrollPicker extends LinearLayout {
 
     // if we use the Int implementation, send the Value itself, otherwise send the index of the selected String
     private void sendOnValueChanged( int newIndex, OnValueChangeListener l ) {
-        l.onValueChange( listItemType == ListItemType.STRING ?
-                newIndex :
-                getIntItems().get( newIndex ) );
+        l.onValueChange( getValue( newIndex ) );
+    }
+
+    private Integer getValue( int index ) {
+        return listItemType == ListItemType.STRING ?
+                index :
+                getIntItems().get( index );
     }
 
     private ArrayList< Integer > getIntItems() {
