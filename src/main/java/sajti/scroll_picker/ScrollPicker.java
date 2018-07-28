@@ -3,9 +3,6 @@ package sajti.scroll_picker;
 import android.animation.ObjectAnimator;
 import android.content.Context;
 import android.content.res.TypedArray;
-import android.databinding.BindingAdapter;
-import android.databinding.InverseBindingAdapter;
-import android.databinding.InverseBindingListener;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
@@ -118,32 +115,6 @@ public class ScrollPicker extends LinearLayout {
         return selectedIndex;
     }
 
-
-
-    private static Integer lastGetValue; // it's for avoiding instant resetting of selectedIndex by bindingAdapter setValue in ScrollPickerValueBinding
-
-    @BindingAdapter( value = "valueAttrChanged" )
-    public static void setListener( ScrollPicker scrollPicker, final InverseBindingListener listener ) {
-        if( listener != null ) {
-            scrollPicker.addOnValueChangedListener( newValue -> listener.onChange() );
-        }
-    }
-
-    @BindingAdapter( "value" )
-    public static void setValue( ScrollPicker scrollPicker, Integer value ) {
-        if( lastGetValue == null || value != lastGetValue )
-            scrollPicker.setValue( value );
-    }
-
-    @InverseBindingAdapter( attribute = "value" )
-    public static Integer getValue( ScrollPicker scrollPicker ) {
-        lastGetValue = scrollPicker.getValue();
-        return lastGetValue;
-    }
-
-
-
-
     public void setSelectorColor( int selectorColor ) {
         selectorPaint.setColor( selectorColor );
     }
@@ -206,7 +177,7 @@ public class ScrollPicker extends LinearLayout {
 
     @Override
     protected void dispatchDraw( Canvas canvas ) {
-        canvas.drawRect( selectorRect, selectorPaint );
+        canvas.drawRect( selectorRect, selectorPaint ); // whatever is before the super call will be drawn to the background, so now the selector is drawn behind the list
         super.dispatchDraw( canvas );
     }
 
@@ -260,16 +231,14 @@ public class ScrollPicker extends LinearLayout {
         inflater.inflate( LAYOUT, this, true );
         selectorPaint = new Paint();
 
-        scrollerTask = new Runnable() {
-            public void run() {
-                int newPosition = scrollView.getScrollY();
-                if( lastScrollY == newPosition ) { // has stopped
-                    scrollYTo.set( lastScrollY );
-                    selectNearestItemOnScrollStop();
-                } else {
-                    lastScrollY = scrollView.getScrollY();
-                    restartScrollStopCheck();
-                }
+        scrollerTask = () -> {
+            int newPosition = scrollView.getScrollY();
+            if( lastScrollY == newPosition ) { // has stopped
+                scrollYTo.set( lastScrollY );
+                selectNearestItemOnScrollStop();
+            } else {
+                lastScrollY = scrollView.getScrollY();
+                restartScrollStopCheck();
             }
         };
         scrollView = findViewById( R.id.scrollView );
@@ -393,14 +362,12 @@ public class ScrollPicker extends LinearLayout {
     private void selectNextItem() {
         if( selectedIndex < items.size() - 1 ) {
             scrollYBy( cellHeight );
-//            selectItem( selectedIndex + 1 );
         }
     }
 
     private void selectPreviousItem() {
         if( selectedIndex > 0 ) {
             scrollYBy( -cellHeight );
-//            selectItem( selectedIndex - 1 );
         }
     }
 
@@ -418,6 +385,7 @@ public class ScrollPicker extends LinearLayout {
                 sendOnValueChanged( newIndex, l );
         } else
             selectedIndex = newIndex;
+        scrollYTo.set( newIndex * cellHeight );
     }
 
     // if we use the Int implementation, send the Value itself, otherwise send the index of the selected String
