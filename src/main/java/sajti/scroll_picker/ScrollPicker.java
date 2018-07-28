@@ -3,6 +3,7 @@ package sajti.scroll_picker;
 import android.animation.ObjectAnimator;
 import android.content.Context;
 import android.content.res.TypedArray;
+import android.databinding.BindingAdapter;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
@@ -71,7 +72,7 @@ public class ScrollPicker extends LinearLayout {
     private boolean isExternalValueChange = true;
     private boolean isOnSizeChangedFinished = false;
     private boolean isListInited = false;
-    private Integer selectedIndex = 0;
+    private int selectedIndex = 0;
     private Runnable scrollerTask;
     private int lastScrollY;
     private AtomicInteger scrollYTo = new AtomicInteger();
@@ -96,8 +97,8 @@ public class ScrollPicker extends LinearLayout {
     }
 
     // external setValue, no need to trigger value changed callback
-    public void setValue( Integer value ) {
-        if( !value.equals( selectedIndex ) ) {
+    public void setValue( int value ) {
+        if( value != selectedIndex ) {
             isExternalValueChange = true;
             switch( listItemType ) {
                 case INT:
@@ -115,8 +116,13 @@ public class ScrollPicker extends LinearLayout {
         }
     }
 
-    public Integer getValue() {
+    public int getValue() {
         return getValue( selectedIndex );
+    }
+
+    @BindingAdapter( "isEnabled" )
+    public static void setEnabled( ScrollPicker scrollPicker, boolean isEnabled ) {
+        scrollPicker.setEnabled( isEnabled );
     }
 
     public void setEnabled( boolean isEnabled ) {
@@ -131,6 +137,10 @@ public class ScrollPicker extends LinearLayout {
         }
     }
 
+    public boolean isEnabled() {
+        return isEnabled;
+    }
+
     public void setSelectorColor( int selectorColor ) {
         selectorPaint.setColor( selectorColor );
     }
@@ -140,15 +150,14 @@ public class ScrollPicker extends LinearLayout {
         initScrollView();
     }
 
-    public void setList( ListItemType listItemType, ArrayList items ) {
+    public void setList( ArrayList items ) {
         isListInited = true;
-        this.listItemType = listItemType;
+        if( items.get( 0 ) instanceof String )
+            this.listItemType = ListItemType.STRING;
+        else
+            this.listItemType = ListItemType.INT;
         this.items = new ArrayList( items );
         initScrollView();
-    }
-
-    public void addOnValueChangedListener( OnValueChangeListener onValueChangeListener ) {
-        onValueChangeListeners.add( onValueChangeListener );
     }
 
     public void setShownItemCount( int itemsToShow ) {
@@ -161,6 +170,10 @@ public class ScrollPicker extends LinearLayout {
     public void setTextColor( int textColor ) {
         setEnabledTextColor( textColor );
         initScrollView();
+    }
+
+    public void addOnValueChangedListener( OnValueChangeListener onValueChangeListener ) {
+        onValueChangeListeners.add( onValueChangeListener );
     }
 
     public void removeOnValueChangedListener( OnValueChangeListener onValueChangeListener ) {
@@ -427,7 +440,7 @@ public class ScrollPicker extends LinearLayout {
         l.onValueChange( getValue( newIndex ) );
     }
 
-    private Integer getValue( int index ) {
+    private int getValue( int index ) {
         return listItemType == ListItemType.STRING ?
                 index :
                 getIntItems().get( index );
@@ -442,7 +455,6 @@ public class ScrollPicker extends LinearLayout {
     }
 
     public interface OnValueChangeListener {
-
         void onValueChange( int newValue ); // if we use the Int implementation, send the Value itself, otherwise send the index of the selected String
     }
 
