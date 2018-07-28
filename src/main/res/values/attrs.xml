@@ -6,5 +6,6 @@
         <attr name="itemsToShow" format="integer"/>
         <attr name="value" format="integer"/>
         <attr name="textSize" format="float"/>
+        <attr name="isEnabled" format="boolean"/>
     </declare-styleable>
 </resources>

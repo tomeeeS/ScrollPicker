@@ -8,6 +8,7 @@ import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.Rect;
 import android.support.annotation.NonNull;
+import android.support.v4.content.ContextCompat;
 import android.support.v4.widget.NestedScrollView;
 import android.util.AttributeSet;
 import android.util.Log;
@@ -31,8 +32,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static android.view.Gravity.CENTER;
 
 /**
- * Made by github.com/tomeeeS
- * <p>
+ * Made by tomeeeS@github
+ *
  * Implementation notes:
  * Do Not try to refactor the funcionality of making the first and last items selectable by refactoring out the empty items into a view with
  * margin on the first/last couple of items! The margins will not be modifiable correctly during scrolling and thus messing up the selected item because some
@@ -49,7 +50,8 @@ public class ScrollPicker extends LinearLayout {
     public static final int TEXT_SIZE_DEFAULT = 18;
     public static final int SELECTOR_HEIGHT_CORRECTION = 1;
     public static final int SCROLL_BY_DURATION_DEFAULT = 120;
-    public static final int SELECTOR_COLOR_DEFAULT = Color.parseColor( "#116b2b66" );
+    public static int SELECTOR_COLOR_DEFAULT;
+    public static int TEXT_COLOR_DISABLED;
     public static final int TEXT_COLOR_DEFAULT = Color.BLACK;
     private final float TOUCH_SLOP = ViewConfiguration.get( getContext() ).getScaledTouchSlop();
 
@@ -74,7 +76,8 @@ public class ScrollPicker extends LinearLayout {
     private int lastScrollY;
     private AtomicInteger scrollYTo = new AtomicInteger();
     private float textSize;
-    private int textColor;
+    private int textColor, enabledTextColor;
+    private boolean isEnabled;
 
     public ScrollPicker( Context context ) {
         this( context, null );
@@ -116,6 +119,18 @@ public class ScrollPicker extends LinearLayout {
         return getValue( selectedIndex );
     }
 
+    public void setEnabled( boolean isEnabled ) {
+        if( this.isEnabled != isEnabled ) {
+            this.isEnabled = isEnabled;
+            if( isEnabled )
+                setEnabledTextColor( enabledTextColor );
+            else
+                setDisabledTextColor( TEXT_COLOR_DISABLED );
+            if( isInited() )
+                initScrollView();
+        }
+    }
+
     public void setSelectorColor( int selectorColor ) {
         selectorPaint.setColor( selectorColor );
     }
@@ -144,7 +159,7 @@ public class ScrollPicker extends LinearLayout {
     }
 
     public void setTextColor( int textColor ) {
-        this.textColor = textColor;
+        setEnabledTextColor( textColor );
         initScrollView();
     }
 
@@ -156,6 +171,8 @@ public class ScrollPicker extends LinearLayout {
     public boolean dispatchTouchEvent( MotionEvent event ) {
         switch( event.getAction() ) {
             case MotionEvent.ACTION_DOWN: // this isn't for going down ;)
+                if( !isEnabled )
+                    return true;
                 mStartY = event.getY();
                 break;
             case MotionEvent.ACTION_CANCEL:
@@ -184,6 +201,8 @@ public class ScrollPicker extends LinearLayout {
     // go 1 down or up on touching above or below the selection area
     @Override
     public boolean onTouchEvent( MotionEvent event ) {
+        if( !isEnabled )
+            return true;
         if( IS_SET_NEXT_OR_PREVIOUS_ITEM_ENABLED ) {
             float x = event.getX();
             float y = event.getY();
@@ -211,13 +230,30 @@ public class ScrollPicker extends LinearLayout {
     }
 
     private void initValues( AttributeSet attrs ) {
+        TEXT_COLOR_DISABLED = ContextCompat.getColor( context, R.color.textColorDisabled );
+        SELECTOR_COLOR_DEFAULT = ContextCompat.getColor( context, R.color.selectorColorDefault );
+
         TypedArray attributesArray = context.obtainStyledAttributes( attrs, R.styleable.ScrollPicker );
+
         setSelectorColor( attributesArray.getColor( R.styleable.ScrollPicker_selectorColor, SELECTOR_COLOR_DEFAULT ) );
         selectorPaint.setStyle( Paint.Style.FILL );
         itemsToShow = attributesArray.getInt( R.styleable.ScrollPicker_itemsToShow, SHOWN_ITEM_COUNT_DEFAULT );
         textSize = attributesArray.getFloat( R.styleable.ScrollPicker_textSize, TEXT_SIZE_DEFAULT );
-        textColor = attributesArray.getInt( R.styleable.ScrollPicker_textColor, TEXT_COLOR_DEFAULT );
+        int textColor = attributesArray.getInt( R.styleable.ScrollPicker_textColor, TEXT_COLOR_DEFAULT );
+        setEnabledTextColor( textColor );
+        isEnabled = true;
+        setEnabled( attributesArray.getBoolean( R.styleable.ScrollPicker_isEnabled, true ) );
+
         attributesArray.recycle();
+    }
+
+    private void setEnabledTextColor( int textColor ) {
+        this.textColor = textColor;
+        enabledTextColor = textColor;
+    }
+
+    private void setDisabledTextColor( int textColorDisabled ) {
+        textColor = textColorDisabled;
     }
 
     private void scrollYTo( int scrollYTo ) {
@@ -288,12 +324,7 @@ public class ScrollPicker extends LinearLayout {
                     selectorRect.bottom,
                     getWidth(),
                     getHeight() );
-            post( new Runnable() {
-                @Override
-                public void run() {
-                    initScrollView();
-                }
-            } );
+            post( this::initScrollView );
         }
     }
 
