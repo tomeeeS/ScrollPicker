@@ -5,7 +5,6 @@ import android.content.Context;
 import android.content.res.TypedArray;
 import android.databinding.BindingAdapter;
 import android.graphics.Canvas;
-import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.Rect;
 import android.support.annotation.NonNull;
@@ -55,9 +54,9 @@ public class ScrollPicker extends LinearLayout {
     public static final int TEXT_SIZE_DEFAULT = 18;
     public static final int SELECTOR_HEIGHT_CORRECTION = 1;
     public static final int SCROLL_INTO_PLACE_DURATION_MS_DEFAULT = 120;
-    public static final int TEXT_COLOR_DEFAULT = Color.BLACK;
     public static int SELECTOR_COLOR_DEFAULT;
     public static int TEXT_COLOR_DISABLED;
+    public static int TEXT_COLOR_DEFAULT;
     private final float TOUCH_SLOP = ViewConfiguration.get( getContext() ).getScaledTouchSlop();
 
     protected ArrayList items;
@@ -73,7 +72,7 @@ public class ScrollPicker extends LinearLayout {
     private Paint selectorPaint;
     private Rect selectorRect;
     private float mStartY;
-    private boolean isExternalValueChange = true;
+    private boolean isExternalValueChange = false;
     private boolean isOnSizeChangedFinished = false;
     private boolean isListInited = false;
     private int selectedIndex = 0;
@@ -248,13 +247,15 @@ public class ScrollPicker extends LinearLayout {
 
     private void initValues( AttributeSet attrs ) {
         TEXT_COLOR_DISABLED = ContextCompat.getColor( context, R.color.textColorDisabled );
+        TEXT_COLOR_DEFAULT = ContextCompat.getColor( context, R.color.textColorDefault );
         SELECTOR_COLOR_DEFAULT = ContextCompat.getColor( context, R.color.selectorColorDefault );
 
         TypedArray attributesArray = context.obtainStyledAttributes( attrs, R.styleable.ScrollPicker );
 
         setSelectorColor( attributesArray.getColor( R.styleable.ScrollPicker_selectorColor, SELECTOR_COLOR_DEFAULT ) );
         selectorPaint.setStyle( Paint.Style.FILL );
-        itemsToShow = attributesArray.getInt( R.styleable.ScrollPicker_itemsToShow, SHOWN_ITEM_COUNT_DEFAULT );
+        setShownItemCount( attributesArray.getInt( R.styleable.ScrollPicker_itemsToShow, SHOWN_ITEM_COUNT_DEFAULT ) );
+
         textSize = attributesArray.getFloat( R.styleable.ScrollPicker_textSize, TEXT_SIZE_DEFAULT );
         int textColor = attributesArray.getInt( R.styleable.ScrollPicker_textColor, TEXT_COLOR_DEFAULT );
         setEnabledTextColor( textColor );
