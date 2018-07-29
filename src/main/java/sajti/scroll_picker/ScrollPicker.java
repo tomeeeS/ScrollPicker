@@ -33,12 +33,12 @@ import static android.view.Gravity.CENTER;
 
 /**
  * Made by tomeeeS@github
- * <p>
+ *
  * Implementation notes:
  * Do Not try to refactor the funcionality of making the first and last items selectable by refactoring out the empty items into a view with
  * margin on the first/last couple of items! The margins will not be modifiable correctly during scrolling and thus messing up the selected item because some
  * items will have the bigger margin of the first/last items due to the listView's reusing of item view layouts.
- * <p>
+ *
  * Do Not try to use setOnScrollChangeListener for listening for scroll stop. Unfortunately it isn't possible, android doesn't give any callbacks for that
  * and we can't determine it from setOnScrollChange either because there is no sensible threshold for y axis scroll value change that would be low enough to
  * detect this event. There is no call to happen when oldY equals y - that would tell us that the scrolling has stopped - and sometimes the last change is as much as 6 pixels.
@@ -50,11 +50,11 @@ public class ScrollPicker extends LinearLayout {
 
     public static final int SHOWN_ITEM_COUNT_DEFAULT = 3;
     public static final boolean IS_SET_NEXT_OR_PREVIOUS_ITEM_ENABLED = true;
-    public static final int SCROLL_STOP_CHECK_INTERVAL_MS = 30;
+    public static final int SCROLL_STOP_CHECK_INTERVAL_MS = 20;
     public static final int POSITIVE_SCROLL_CORRECTION = 1;
     public static final int TEXT_SIZE_DEFAULT = 18;
     public static final int SELECTOR_HEIGHT_CORRECTION = 1;
-    public static final int SCROLL_INTO_PLACE_DURATION_DEFAULT = 120;
+    public static final int SCROLL_INTO_PLACE_DURATION_MS_DEFAULT = 120;
     public static final int TEXT_COLOR_DEFAULT = Color.BLACK;
     public static int SELECTOR_COLOR_DEFAULT;
     public static int TEXT_COLOR_DISABLED;
@@ -275,7 +275,7 @@ public class ScrollPicker extends LinearLayout {
 
     private void scrollYTo( int scrollYTo ) {
         ObjectAnimator scrollYAnimator = ObjectAnimator.ofInt( scrollView, "scrollY", scrollYTo ).
-                setDuration( SCROLL_INTO_PLACE_DURATION_DEFAULT );
+                setDuration( SCROLL_INTO_PLACE_DURATION_MS_DEFAULT );
         scrollYAnimator.setInterpolator( new LinearInterpolator() );
         scrollYAnimator.start();
     }
@@ -288,7 +288,7 @@ public class ScrollPicker extends LinearLayout {
         scrollerTask = () -> {
             int newPosition = scrollView.getScrollY();
             if( lastScrollY == newPosition ) { // has probably stopped. we can't be sure unfortunately and this is the best you can do with the lacking android api.
-                scrollView.scrollBy( 0, 0 ); // we stop the scrolling to be sure.
+                scrollView.smoothScrollBy( 0, 0 ); // we stop the scrolling to be sure. but this solution isn't pretty, it stutters while stopping and looks bad
                 scrollYTo.set( lastScrollY );
                 selectNearestItemOnScrollStop();
             } else {
@@ -361,7 +361,7 @@ public class ScrollPicker extends LinearLayout {
 
             scrollView.addView( scrollViewParent );
             scrollViewParent.getViewTreeObserver().addOnPreDrawListener( new ViewTreeObserver.OnPreDrawListener() {
-                public boolean onPreDraw() {
+                public boolean onPreDraw() { // we scroll to the selected item before presenting ourselves. this is only done at initialization
                     scrollView.getViewTreeObserver().removeOnPreDrawListener( this );
                     int scrollYTo = selectedIndex * cellHeight;
                     scrollView.scrollTo( 0, scrollYTo );
@@ -425,7 +425,6 @@ public class ScrollPicker extends LinearLayout {
     private void scrollYBy( int scrollYby ) {
         scrollYTo.set( scrollYTo.get() + scrollYby );
         scrollYTo( scrollYTo.get() );
-
         selectItem( scrollYTo.get() / cellHeight );
     }
 
