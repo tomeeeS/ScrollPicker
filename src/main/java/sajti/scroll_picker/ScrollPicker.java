@@ -12,7 +12,6 @@ import android.support.annotation.NonNull;
 import android.support.v4.content.ContextCompat;
 import android.support.v4.widget.NestedScrollView;
 import android.util.AttributeSet;
-import android.util.Log;
 import android.util.TypedValue;
 import android.view.LayoutInflater;
 import android.view.MotionEvent;
@@ -34,11 +33,16 @@ import static android.view.Gravity.CENTER;
 
 /**
  * Made by tomeeeS@github
- *
+ * <p>
  * Implementation notes:
  * Do Not try to refactor the funcionality of making the first and last items selectable by refactoring out the empty items into a view with
  * margin on the first/last couple of items! The margins will not be modifiable correctly during scrolling and thus messing up the selected item because some
  * items will have the bigger margin of the first/last items due to the listView's reusing of item view layouts.
+ * <p>
+ * Do Not try to use setOnScrollChangeListener for listening for scroll stop. Unfortunately it isn't possible, android doesn't give any callbacks for that
+ * and we can't determine it from setOnScrollChange either because there is no sensible threshold for y axis scroll value change that would be low enough to
+ * detect this event. There is no call to happen when oldY equals y - that would tell us that the scrolling has stopped - and sometimes the last change is as much as 6 pixels.
+ * This scrollerTask solution is the best I could come up with.
  */
 public class ScrollPicker extends LinearLayout {
 
@@ -46,14 +50,14 @@ public class ScrollPicker extends LinearLayout {
 
     public static final int SHOWN_ITEM_COUNT_DEFAULT = 3;
     public static final boolean IS_SET_NEXT_OR_PREVIOUS_ITEM_ENABLED = true;
-    public static final int SCROLL_STOP_CHECK_INTERVAL_MS = 20;
+    public static final int SCROLL_STOP_CHECK_INTERVAL_MS = 30;
     public static final int POSITIVE_SCROLL_CORRECTION = 1;
     public static final int TEXT_SIZE_DEFAULT = 18;
     public static final int SELECTOR_HEIGHT_CORRECTION = 1;
-    public static final int SCROLL_BY_DURATION_DEFAULT = 120;
+    public static final int SCROLL_INTO_PLACE_DURATION_DEFAULT = 120;
+    public static final int TEXT_COLOR_DEFAULT = Color.BLACK;
     public static int SELECTOR_COLOR_DEFAULT;
     public static int TEXT_COLOR_DISABLED;
-    public static final int TEXT_COLOR_DEFAULT = Color.BLACK;
     private final float TOUCH_SLOP = ViewConfiguration.get( getContext() ).getScaledTouchSlop();
 
     protected ArrayList items;
@@ -96,6 +100,15 @@ public class ScrollPicker extends LinearLayout {
         initValues( attrs );
     }
 
+    @BindingAdapter("isEnabled")
+    public static void setEnabled( ScrollPicker scrollPicker, boolean isEnabled ) {
+        scrollPicker.setEnabled( isEnabled );
+    }
+
+    public int getValue() {
+        return getValue( selectedIndex );
+    }
+
     // external setValue, no need to trigger value changed callback
     public void setValue( int value ) {
         if( value != selectedIndex ) {
@@ -116,13 +129,8 @@ public class ScrollPicker extends LinearLayout {
         }
     }
 
-    public int getValue() {
-        return getValue( selectedIndex );
-    }
-
-    @BindingAdapter( "isEnabled" )
-    public static void setEnabled( ScrollPicker scrollPicker, boolean isEnabled ) {
-        scrollPicker.setEnabled( isEnabled );
+    public boolean isEnabled() {
+        return isEnabled;
     }
 
     public void setEnabled( boolean isEnabled ) {
@@ -137,8 +145,31 @@ public class ScrollPicker extends LinearLayout {
         }
     }
 
-    public boolean isEnabled() {
-        return isEnabled;
+    // select previous or next on touching above or below the selection area
+    @Override
+    public boolean onTouchEvent( MotionEvent event ) {
+        if( !isEnabled )
+            return true;
+        if( IS_SET_NEXT_OR_PREVIOUS_ITEM_ENABLED ) {
+            float x = event.getX();
+            float y = event.getY();
+            if( selectPreviousItemRect.contains( (int)x, (int)y ) ) {
+                selectPreviousItem();
+            }
+            if( selectNextItemRect.contains( (int)x, (int)y ) ) {
+                selectNextItem();
+            }
+            invalidate();
+        }
+        return false;
+    }
+
+    @Override
+    protected void onSizeChanged( int w, int h, int oldw, int oldh ) {
+        super.onSizeChanged( w, h, oldw, oldh );
+        isOnSizeChangedFinished = true;
+        if( w > 0 )
+            initSelectorAndCellHeight();
     }
 
     public void setSelectorColor( int selectorColor ) {
@@ -183,7 +214,7 @@ public class ScrollPicker extends LinearLayout {
     @Override
     public boolean dispatchTouchEvent( MotionEvent event ) {
         switch( event.getAction() ) {
-            case MotionEvent.ACTION_DOWN: // this isn't for going down ;)
+            case MotionEvent.ACTION_DOWN:
                 if( !isEnabled )
                     return true;
                 mStartY = event.getY();
@@ -211,35 +242,8 @@ public class ScrollPicker extends LinearLayout {
         super.dispatchDraw( canvas );
     }
 
-    // go 1 down or up on touching above or below the selection area
-    @Override
-    public boolean onTouchEvent( MotionEvent event ) {
-        if( !isEnabled )
-            return true;
-        if( IS_SET_NEXT_OR_PREVIOUS_ITEM_ENABLED ) {
-            float x = event.getX();
-            float y = event.getY();
-            if( selectPreviousItemRect.contains( (int)x, (int)y ) ) {
-                selectPreviousItem();
-            }
-            if( selectNextItemRect.contains( (int)x, (int)y ) ) {
-                selectNextItem();
-            }
-            invalidate();
-        }
-        return false;
-    }
-    @Override
-    protected void onSizeChanged( int w, int h, int oldw, int oldh ) {
-        super.onSizeChanged( w, h, oldw, oldh );
-        isOnSizeChangedFinished = true;
-        if( w > 0 )
-            initSelectorAndCellHeight();
-    }
-
     private void restartScrollStopCheck() {
         postDelayed( scrollerTask, SCROLL_STOP_CHECK_INTERVAL_MS );
-        Log.d( "ScrollPicker", "restartScrollStopCheck" );
     }
 
     private void initValues( AttributeSet attrs ) {
@@ -271,7 +275,7 @@ public class ScrollPicker extends LinearLayout {
 
     private void scrollYTo( int scrollYTo ) {
         ObjectAnimator scrollYAnimator = ObjectAnimator.ofInt( scrollView, "scrollY", scrollYTo ).
-                setDuration( SCROLL_BY_DURATION_DEFAULT );
+                setDuration( SCROLL_INTO_PLACE_DURATION_DEFAULT );
         scrollYAnimator.setInterpolator( new LinearInterpolator() );
         scrollYAnimator.start();
     }
@@ -283,8 +287,8 @@ public class ScrollPicker extends LinearLayout {
 
         scrollerTask = () -> {
             int newPosition = scrollView.getScrollY();
-            if( lastScrollY == newPosition ) { // has stopped
-                Log.d( "ScrollPicker", "has stopped" );
+            if( lastScrollY == newPosition ) { // has probably stopped. we can't be sure unfortunately and this is the best you can do with the lacking android api.
+                scrollView.scrollBy( 0, 0 ); // we stop the scrolling to be sure.
                 scrollYTo.set( lastScrollY );
                 selectNearestItemOnScrollStop();
             } else {
@@ -455,6 +459,7 @@ public class ScrollPicker extends LinearLayout {
     }
 
     public interface OnValueChangeListener {
+
         void onValueChange( int newValue ); // if we use the Int implementation, send the Value itself, otherwise send the index of the selected String
     }
 
