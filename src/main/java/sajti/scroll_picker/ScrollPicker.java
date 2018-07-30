@@ -32,17 +32,21 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static android.view.Gravity.CENTER;
 
 /**
- * Made by tomeeeS@github
+ * Made by Tamás Sajti,  tomeeeS@github
+ * To have a customizable and data-bindable NumberPicker.
  *
- * Implementation notes:
- * Do Not try to refactor the funcionality of making the first and last items selectable by refactoring out the empty items into a view with
- * margin on the first/last couple of items! The margins will not be modifiable correctly during scrolling and thus messing up the selected item because some
- * items will have the bigger margin of the first/last items due to the listView's reusing of item view layouts.
+ * Glossary:
+ * value - consistent with NumberPicker, if the list we set was such that its items are of String, then the value corresponds to the indice of the selected items in the list,
+ *              while in case of Integers it is the items' int value.
+ * selector - the visual indication about the currently selected item at the middle of the view
  *
- * Do Not try to use setOnScrollChangeListener for listening for scroll stop. Unfortunately it isn't possible, android doesn't give any callbacks for that
- * and we can't determine it from setOnScrollChange either because there is no sensible threshold for y axis scroll value change that would be low enough to
- * detect this event. There is no call to happen when oldY equals y - that would tell us that the scrolling has stopped - and sometimes the last change is as much as 6 pixels.
- * This scrollerTask solution is the best I could come up with.
+ * Implementation advices: (for those who would want to refactor this)
+ * - Do Not try to use setOnScrollChangeListener for listening for scroll stop. Unfortunately it isn't possible, android doesn't give any callbacks for that
+ *      and we can't determine it from setOnScrollChange because there is no sensible threshold for y axis scroll value change (y - oldY) that would be low enough to
+ *      detect this event. There is no call to happen when oldY equals y - that would tell us clearly that the scrolling has stopped -
+ *      and sometimes the last change is as much as 6 pixels.
+ *      This scrollerTask solution is the best I could come up with. (check for slowing scroll from time to time and when it's in a threshold value we stop the
+ *      current scrolling and start the correction scroll).
  */
 public class ScrollPicker extends LinearLayout {
 
@@ -60,15 +64,15 @@ public class ScrollPicker extends LinearLayout {
     public static int TEXT_COLOR_DEFAULT;
     private final float TOUCH_SLOP = ViewConfiguration.get( getContext() ).getScaledTouchSlop();
 
-    protected ArrayList items;
-    private Rect selectPreviousItemRect;
-    private Rect selectNextItemRect;
-    private ListItemType listItemType;
-    private NestedScrollView scrollView;
+    protected ArrayList items; // the String or Integer items that we display
+    private Rect selectPreviousItemRect; // the touch area rectangle for the select previous item functionality
+    private Rect selectNextItemRect; // the touch area rectangle for the select next item functionality
+    private ListItemType listItemType; // String or Int
+    private NestedScrollView scrollView; // the parent view in which we have the elements in a vertical LinearLayout. Good for scrolling.
     private Context context;
-    private int itemsToShow = SHOWN_ITEM_COUNT_DEFAULT;
+    private int itemsToShow = SHOWN_ITEM_COUNT_DEFAULT; // the maximum item count which will be displayed at a time
     private int spaceCellCount; // how many cells equate to the height of the space before (and after) the text views
-    private int cellHeight;
+    private int cellHeight; // height of one item
     private List< OnValueChangeListener > onValueChangeListeners = new LinkedList<>();
     private Paint selectorPaint;
     private Rect selectorRect;
@@ -83,6 +87,8 @@ public class ScrollPicker extends LinearLayout {
     private float textSize;
     private int textColor, enabledTextColor;
     private boolean isEnabled;
+
+    // region public interface
 
     public ScrollPicker( Context context ) {
         this( context, null );
@@ -100,19 +106,25 @@ public class ScrollPicker extends LinearLayout {
         initValues( attrs );
     }
 
-    @BindingAdapter("isEnabled")
-    public static void setEnabled( ScrollPicker scrollPicker, boolean isEnabled ) {
-        scrollPicker.setEnabled( isEnabled );
-    }
-
+    /**
+     * Gets the selected item. Can be data-bound (2-way).
+     *
+     * @return If the list we set was such that its items are of String, then the returned value corresponds to the index of the selected item in the list,
+     *         while in case of Integers it is the selected item's int value.
+     */
     public int getValue() {
         return getValue( selectedIndex );
     }
 
-    // external setValue, no need to trigger value changed callback
+    /**
+     * Sets the selected item. Can be data-bound (2-way).
+     *
+     * @param value If the list we set was such that its items are of String, then the value corresponds to the indice of the selected items in the list,
+     *              while in case of Integers it is the items' int value.
+     */
     public void setValue( int value ) {
         if( value != selectedIndex ) {
-            isExternalValueChange = true;
+            isExternalValueChange = true; // external setValue, no need to trigger value changed callback
             switch( listItemType ) {
                 case INT:
                     selectItem( value - ( getIntItems() ).get( 0 ) );
@@ -129,10 +141,30 @@ public class ScrollPicker extends LinearLayout {
         }
     }
 
+    /**
+     * Returns if the view is enabled or not i.e. able to receive and process touch events.
+     *  <p>
+     *  Note: If you disable it it will still work with data-bound changes of your view model or programmatical calls.
+     *  </p>
+     */
     public boolean isEnabled() {
         return isEnabled;
     }
 
+    /**
+     * Data binding helper method for {@link #setEnabled(boolean)}.
+     */
+    @BindingAdapter("isEnabled")
+    public static void setEnabled( ScrollPicker scrollPicker, boolean isEnabled ) {
+        scrollPicker.setEnabled( isEnabled );
+    }
+
+    /**
+     *  Should the view be enabled or not i.e. to receive and process touch events. Can be data-bound.
+     *  <p>
+     *  Note: If you disable it it will still work with data-bound changes of your view model or programmatical calls.
+     *  </p>
+     */
     public void setEnabled( boolean isEnabled ) {
         if( this.isEnabled != isEnabled ) {
             this.isEnabled = isEnabled;
@@ -144,6 +176,83 @@ public class ScrollPicker extends LinearLayout {
                 initScrollView();
         }
     }
+
+    /**
+     * Sets the selector's color. The selector is the visual indication about the currently selected item at the middle of the view.
+     *
+     * @param selectorColor Standard android int representation of a color.
+     */
+    public void setSelectorColor( int selectorColor ) {
+        selectorPaint.setColor( selectorColor );
+    }
+
+    /**
+     * Sets the text size of the list items displayed.
+     */
+    public void setTextSize( float textSize ) {
+        this.textSize = textSize;
+        initScrollView();
+    }
+
+    /**
+     * Sets the list whose items this view displays. Can be data-bound. //todo
+     *
+     * @param items An ArrayList whose template type must be either String or Integer. Must be non-empty.
+     *              In case of ArrayList&lt;String&gt the value that you can set to this view with {@link #setValue(int)} will correspond to the index of the selected item in this list,
+     *              while in case of ArrayList&lt;Integer&gt it will be the item's int value.
+     */
+    public void setList( ArrayList items ) {
+        isListInited = true;
+        if( items.get( 0 ) instanceof String )
+            this.listItemType = ListItemType.STRING;
+        else if( items.get( 0 ) instanceof Integer )
+            this.listItemType = ListItemType.INT;
+        else {
+            Log.e( "ScrollPicker", "items template type must be either String or Integer!" );
+            this.listItemType = ListItemType.INT;
+        }
+        this.items = new ArrayList( items );
+        initScrollView();
+    }
+
+    /**
+     * Sets the maximum item count which will be displayed at a time. (Maximum because at the start and at the end of the list there is space to allow us to select the first or last
+     * items respectively at the middle of the view)
+     */
+    public void setShownItemCount( int itemsToShow ) {
+        this.itemsToShow = itemsToShow;
+        spaceCellCount = itemsToShow / 2;
+        initSelectorAndCellHeight();
+        initScrollView();
+    }
+
+    /**
+     * Sets the text color of all the items in the list.
+     *
+     * @param textColor Standard android int representation of a color.
+     */
+    public void setTextColor( int textColor ) {
+        setEnabledTextColor( textColor );
+        initScrollView();
+    }
+
+    /**
+     * Adds a listener for the value change event, which happens when a different item gets selected with touch.
+     * This callback does not happen when the setValue is called programmatically.
+     */
+    public void addOnValueChangedListener( OnValueChangeListener onValueChangeListener ) {
+        onValueChangeListeners.add( onValueChangeListener );
+    }
+
+    /**
+     * Removes a listener for the value change event, which happens when a different item gets selected with touch.
+     * Wouldn't be a problem if you tried to remove one which you haven't actually added previously.
+     */
+    public void removeOnValueChangedListener( OnValueChangeListener onValueChangeListener ) {
+        onValueChangeListeners.remove( onValueChangeListener );
+    }
+
+    // endregion public interface
 
     // select previous or next on touching above or below the selection area
     @Override
@@ -170,56 +279,6 @@ public class ScrollPicker extends LinearLayout {
         isOnSizeChangedFinished = true;
         if( w > 0 )
             initSelectorAndCellHeight();
-    }
-
-    public void setSelectorColor( int selectorColor ) {
-        selectorPaint.setColor( selectorColor );
-    }
-
-    public void setTextSize( float textSize ) {
-        this.textSize = textSize;
-        initScrollView();
-    }
-
-    /**
-     * Sets the list whose items this view displays.
-     *
-     * @param items an ArrayList whose template type must be either String or Integer.
-     *              In case of ArrayList&lt;String&gt the value that you can set to this view with {@link #setValue(int)} will correspond to the index of the selected item in this list,
-     *              while in case of ArrayList&lt;Integer&gt it will be the item's value instead.
-     */
-    public void setList( ArrayList items ) {
-        isListInited = true;
-        if( items.get( 0 ) instanceof String )
-            this.listItemType = ListItemType.STRING;
-        else if( items.get( 0 ) instanceof Integer )
-            this.listItemType = ListItemType.INT;
-        else {
-            Log.e( "ScrollPicker", "items template type must be either String or Integer!" );
-            this.listItemType = ListItemType.INT;
-        }
-        this.items = new ArrayList( items );
-        initScrollView();
-    }
-
-    public void setShownItemCount( int itemsToShow ) {
-        this.itemsToShow = itemsToShow;
-        spaceCellCount = itemsToShow / 2;
-        initSelectorAndCellHeight();
-        initScrollView();
-    }
-
-    public void setTextColor( int textColor ) {
-        setEnabledTextColor( textColor );
-        initScrollView();
-    }
-
-    public void addOnValueChangedListener( OnValueChangeListener onValueChangeListener ) {
-        onValueChangeListeners.add( onValueChangeListener );
-    }
-
-    public void removeOnValueChangedListener( OnValueChangeListener onValueChangeListener ) {
-        onValueChangeListeners.remove( onValueChangeListener );
     }
 
     @Override
