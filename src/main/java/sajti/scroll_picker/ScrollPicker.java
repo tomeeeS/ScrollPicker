@@ -11,6 +11,7 @@ import android.support.annotation.NonNull;
 import android.support.v4.content.ContextCompat;
 import android.support.v4.widget.NestedScrollView;
 import android.util.AttributeSet;
+import android.util.Log;
 import android.util.TypedValue;
 import android.view.LayoutInflater;
 import android.view.MotionEvent;
@@ -180,12 +181,23 @@ public class ScrollPicker extends LinearLayout {
         initScrollView();
     }
 
+    /**
+     * Sets the list whose items this view displays.
+     *
+     * @param items an ArrayList whose template type must be either String or Integer.
+     *              In case of ArrayList&lt;String&gt the value that you can set to this view with {@link #setValue(int)} will correspond to the index of the selected item in this list,
+     *              while in case of ArrayList&lt;Integer&gt it will be the item's value instead.
+     */
     public void setList( ArrayList items ) {
         isListInited = true;
         if( items.get( 0 ) instanceof String )
             this.listItemType = ListItemType.STRING;
-        else
+        else if( items.get( 0 ) instanceof Integer )
             this.listItemType = ListItemType.INT;
+        else {
+            Log.e( "ScrollPicker", "items template type must be either String or Integer!" );
+            this.listItemType = ListItemType.INT;
+        }
         this.items = new ArrayList( items );
         initScrollView();
     }
@@ -289,7 +301,7 @@ public class ScrollPicker extends LinearLayout {
         scrollerTask = () -> {
             int newPosition = scrollView.getScrollY();
             if( lastScrollY == newPosition ) { // has probably stopped. we can't be sure unfortunately and this is the best you can do with the lacking android api.
-                scrollView.smoothScrollBy( 0, 0 ); // we stop the scrolling to be sure. but this solution isn't pretty, it stutters while stopping and looks bad
+                scrollView.fling( 0 ); // we stop the scrolling to be sure. better than smoothScrollTo( 0, 0 ): it jumps once and back fast while stopping and looks bad
                 scrollYTo.set( lastScrollY );
                 selectNearestItemOnScrollStop();
             } else {
