@@ -32,36 +32,49 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static android.view.Gravity.CENTER;
 
 /**
- * Made by Tamás Sajti,  tomeeeS@github
+ * Made by Tamás Sajti  tamas.sajti.dev@gmail.com
  * To have a customizable and data-bindable NumberPicker.
  *
+ * project home:                          https://github.com/tomeeeS/ScrollPicker
+ * demo project showcasing functionality: https://github.com/tomeeeS/ScrollPickerDemo
+ *
+ * Notes:
+ * - The items can't be edited like in NumberPicker.
+ * - When you set a String list for items, the value is always just the index and not a custom interval of numbers set with setMin, setMax as in NumberPicker,
+ *      but I don't think that's a real way of dealing with that obscure use case anyway, it's not robust for one, as you have to make sure that
+ *      "The length of the displayed values array must be equal to the range of selectable numbers which is equal to getMaxValue() - getMinValue() + 1"
+ *      why would you need to worry about making 3 calls right instead of just dealing with an offset on the indices at one place in the logic?
+ *
  * Glossary:
- * value - consistent with NumberPicker, if the list we set was such that its items are of String, then the value corresponds to the indice of the selected items in the list,
- *              while in case of Integers it is the items' int value.
+ * value    - consistent with NumberPicker, if the list we set was such that its items are of String, then the value corresponds to the index of the selected item in the list,
+ *              while in case of Integers it is the item's int value.
  * selector - the visual indication about the currently selected item at the middle of the view
  *
- * Implementation advices: (for those who would want to refactor this)
+ * Licence: Apache-2.0 (do with it whatever you please)
+ *
+ * Implementation advices: (for those who might want to make changes)
  * - Do Not try to use setOnScrollChangeListener for listening for scroll stop. Unfortunately it isn't possible, android doesn't give any callbacks for that
- *      and we can't determine it from setOnScrollChange because there is no sensible threshold for y axis scroll value change (y - oldY) that would be low enough to
+ *      and we can't determine it from setOnScrollChange because there is no sensible threshold for scroll value change (y - oldY) that would be low enough to
  *      detect this event. There is no call to happen when oldY equals y - that would tell us clearly that the scrolling has stopped -
- *      and sometimes the last change is as much as 6 pixels.
+ *      and sometimes the last change is as much as 6 pixels so there is also no sensible threshold value.
  *      This scrollerTask solution is the best I could come up with. (check for slowing scroll from time to time and when it's in a threshold value we stop the
  *      current scrolling and start the correction scroll).
+ *
  */
 public class ScrollPicker extends LinearLayout {
 
-    public static final int LAYOUT = R.layout.scroll_picker;
+    private static final int LAYOUT = R.layout.scroll_picker;
 
-    public static final int SHOWN_ITEM_COUNT_DEFAULT = 3;
-    public static final boolean IS_SET_NEXT_OR_PREVIOUS_ITEM_ENABLED = true;
-    public static final int SCROLL_STOP_CHECK_INTERVAL_MS = 20;
-    public static final int POSITIVE_SCROLL_CORRECTION = 1;
-    public static final int TEXT_SIZE_DEFAULT = 18;
-    public static final int SELECTOR_HEIGHT_CORRECTION = 1;
-    public static final int SCROLL_INTO_PLACE_DURATION_MS_DEFAULT = 120;
-    public static int SELECTOR_COLOR_DEFAULT;
-    public static int TEXT_COLOR_DISABLED;
-    public static int TEXT_COLOR_DEFAULT;
+    private static final int SHOWN_ITEM_COUNT_DEFAULT = 3;
+    private static final boolean IS_SET_NEXT_OR_PREVIOUS_ITEM_ENABLED = true;
+    private static final int SCROLL_STOP_CHECK_INTERVAL_MS = 20;
+    private static final int POSITIVE_SCROLL_CORRECTION = 1;
+    private static final int TEXT_SIZE_DEFAULT = 18;
+    private static final int SELECTOR_HEIGHT_CORRECTION = 1;
+    private static final int SCROLL_INTO_PLACE_DURATION_MS_DEFAULT = 120;
+    private static int SELECTOR_COLOR_DEFAULT;
+    private static int TEXT_COLOR_DISABLED;
+    private static int TEXT_COLOR_DEFAULT;
     private final float TOUCH_SLOP = ViewConfiguration.get( getContext() ).getScaledTouchSlop();
 
     protected ArrayList items; // the String or Integer items that we display
@@ -119,8 +132,8 @@ public class ScrollPicker extends LinearLayout {
     /**
      * Sets the selected item. Can be data-bound (2-way).
      *
-     * @param value If the list we set was such that its items are of String, then the value corresponds to the indice of the selected items in the list,
-     *              while in case of Integers it is the items' int value.
+     * @param value If the list we set was such that its items are of String, then the value corresponds to the indiex of the selected item in the list,
+     *              while in case of Integers it is the item's int value.
      */
     public void setValue( int value ) {
         if( value != selectedIndex ) {
