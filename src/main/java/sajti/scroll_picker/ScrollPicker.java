@@ -197,6 +197,7 @@ public class ScrollPicker extends LinearLayout {
      */
     public void setSelectorColor( int selectorColor ) {
         selectorPaint.setColor( selectorColor );
+        initScrollView();
     }
 
     /**
@@ -296,10 +297,10 @@ public class ScrollPicker extends LinearLayout {
 
     @Override
     public boolean dispatchTouchEvent( MotionEvent event ) {
+        if( !isEnabled )
+            return true;
         switch( event.getAction() ) {
             case MotionEvent.ACTION_DOWN:
-                if( !isEnabled )
-                    return true;
                 mStartY = event.getY();
                 break;
             case MotionEvent.ACTION_CANCEL:
@@ -334,6 +335,7 @@ public class ScrollPicker extends LinearLayout {
         TEXT_COLOR_DEFAULT = ContextCompat.getColor( context, R.color.textColorDefault );
         SELECTOR_COLOR_DEFAULT = ContextCompat.getColor( context, R.color.selectorColorDefault );
 
+        isEnabled = true;
         TypedArray attributesArray = context.obtainStyledAttributes( attrs, R.styleable.ScrollPicker );
 
         setSelectorColor( attributesArray.getColor( R.styleable.ScrollPicker_selectorColor, SELECTOR_COLOR_DEFAULT ) );
@@ -343,14 +345,14 @@ public class ScrollPicker extends LinearLayout {
         textSize = attributesArray.getFloat( R.styleable.ScrollPicker_textSize, TEXT_SIZE_DEFAULT );
         int textColor = attributesArray.getInt( R.styleable.ScrollPicker_textColor, TEXT_COLOR_DEFAULT );
         setEnabledTextColor( textColor );
-        isEnabled = true;
         setEnabled( attributesArray.getBoolean( R.styleable.ScrollPicker_isEnabled, true ) );
 
         attributesArray.recycle();
     }
 
     private void setEnabledTextColor( int textColor ) {
-        this.textColor = textColor;
+        if( isEnabled )
+            this.textColor = textColor;
         enabledTextColor = textColor;
     }
 
