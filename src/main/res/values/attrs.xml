@@ -7,5 +7,6 @@
         <attr name="value" format="integer"/>
         <attr name="textSize" format="float"/>
         <attr name="isEnabled" format="boolean"/>
+        <attr name="list" format="reference" />
     </declare-styleable>
 </resources>

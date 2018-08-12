@@ -4,6 +4,8 @@ import android.animation.ObjectAnimator;
 import android.content.Context;
 import android.content.res.TypedArray;
 import android.databinding.BindingAdapter;
+import android.databinding.Observable;
+import android.databinding.ObservableField;
 import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.graphics.Rect;
@@ -100,6 +102,7 @@ public class ScrollPicker extends LinearLayout {
     private float textSize;
     private int textColor, enabledTextColor;
     private boolean isEnabled;
+    private Integer storedValue;
 
     // region public interface
 
@@ -126,7 +129,7 @@ public class ScrollPicker extends LinearLayout {
      *         while in case of Integers it is the selected item's int value.
      */
     public int getValue() {
-        return getValue( selectedIndex );
+        return getValueForIndex( selectedIndex );
     }
 
     /**
@@ -136,22 +139,33 @@ public class ScrollPicker extends LinearLayout {
      *              while in case of Integers it is the item's int value.
      */
     public void setValue( int value ) {
-        if( value != selectedIndex ) {
-            isExternalValueChange = true; // external setValue, no need to trigger value changed callback
-            switch( listItemType ) {
-                case INT:
-                    selectItem( value - ( getIntItems() ).get( 0 ) );
-                    break;
-                case STRING:
-                    selectItem( value );
-                    break;
+        if( isListInited ) {
+            if( value != getValueForIndex( selectedIndex ) ) {
+                isExternalValueChange = true; // external setValue, no need to trigger value changed callback
+                selectItemFromIndex( value );
+                if( isInited() ) {
+                    scrollYTo( selectedIndex * cellHeight );
+                    invalidate();
+                }
+                isExternalValueChange = false;
             }
-            if( isInited() ) {
-                scrollYTo( selectedIndex * cellHeight );
-                invalidate();
-            }
-            isExternalValueChange = false;
+        } else
+            storedValue = value;
+    }
+
+    private void selectItemFromIndex( int index ) {
+        switch( listItemType ) {
+            case INT:
+                selectItem( getIndexOfValue( index ) );
+                break;
+            case STRING:
+                selectItem( index );
+                break;
         }
+    }
+
+    private int getIndexOfValue( int value ) {
+        return getIntItems().indexOf( value );
     }
 
     /**
@@ -209,6 +223,19 @@ public class ScrollPicker extends LinearLayout {
     }
 
     /**
+     * Data binding helper method for {@link #setList(ArrayList)}.
+     */
+    public void setList( ObservableField< ArrayList > items ) {
+        setList( items.get() );
+        items.addOnPropertyChangedCallback( new Observable.OnPropertyChangedCallback() {
+            @Override
+            public void onPropertyChanged( Observable sender, int propertyId ) {
+                setList( items.get() );
+            }
+        } );
+    }
+
+    /**
      * Sets the list whose items this view displays. Can be data-bound. //todo
      *
      * @param items An ArrayList whose template type must be either String or Integer. Must be non-empty.
@@ -216,7 +243,19 @@ public class ScrollPicker extends LinearLayout {
      *              while in case of ArrayList&lt;Integer&gt it will be the item's int value.
      */
     public void setList( ArrayList items ) {
+        if( isListInited ) // if we already had a list set, we set the first item as default
+            setValue( getValueForIndex( 0 ) );
+        setListItemType( items );
+        this.items = new ArrayList( items );
         isListInited = true;
+        initScrollView();
+        if( storedValue != null ) {
+            setValue( storedValue );
+            storedValue = null;
+        }
+    }
+
+    private void setListItemType( ArrayList items ) {
         if( items.get( 0 ) instanceof String )
             this.listItemType = ListItemType.STRING;
         else if( items.get( 0 ) instanceof Integer )
@@ -225,8 +264,6 @@ public class ScrollPicker extends LinearLayout {
             Log.e( "ScrollPicker", "items template type must be either String or Integer!" );
             this.listItemType = ListItemType.INT;
         }
-        this.items = new ArrayList( items );
-        initScrollView();
     }
 
     /**
@@ -527,10 +564,10 @@ public class ScrollPicker extends LinearLayout {
 
     // if we use the Int implementation, send the Value itself, otherwise send the index of the selected String
     private void sendOnValueChanged( int newIndex, OnValueChangeListener l ) {
-        l.onValueChange( getValue( newIndex ) );
+        l.onValueChange( getValueForIndex( newIndex ) );
     }
 
-    private int getValue( int index ) {
+    private int getValueForIndex( int index ) {
         return listItemType == ListItemType.STRING ?
                 index :
                 getIntItems().get( index );
