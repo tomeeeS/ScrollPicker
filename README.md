@@ -2,6 +2,9 @@
 Customizable and data-bindable NumberPicker-like custom view for android.  
 A [demo project](https://github.com/tomeeeS/ScrollPickerDemo) showcasing functionality is available.
 
+## Requirements
+You don't need Java 8, nor kotlin compiler for this as it was written in Java 7.
+
 ## Donation
 If you found it useful, please consider donating. Thank you!  
 
