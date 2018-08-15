@@ -70,7 +70,6 @@ public class ScrollPicker extends LinearLayout {
     private static final int SHOWN_ITEM_COUNT_DEFAULT = 3;
     private static final boolean IS_SET_NEXT_OR_PREVIOUS_ITEM_ENABLED = true;
     private static final int SCROLL_STOP_CHECK_INTERVAL_MS = 20;
-    private static final int POSITIVE_SCROLL_CORRECTION = 1;
     private static final int TEXT_SIZE_DEFAULT = 18;
     private static final int SELECTOR_HEIGHT_CORRECTION = 1;
     private static final int SCROLL_INTO_PLACE_DURATION_MS_DEFAULT = 120;
@@ -212,6 +211,13 @@ public class ScrollPicker extends LinearLayout {
     public void setSelectorColor( int selectorColor ) {
         selectorPaint.setColor( selectorColor );
         initScrollView();
+    }
+
+    /**
+     * Returns the text size of the list items displayed.
+     */
+    public float getTextSize() {
+        return textSize;
     }
 
     /**
@@ -359,7 +365,8 @@ public class ScrollPicker extends LinearLayout {
 
     @Override
     protected void dispatchDraw( Canvas canvas ) {
-        canvas.drawRect( selectorRect, selectorPaint ); // whatever is before the super call will be drawn to the background, so now the selector is drawn behind the list
+        // whatever is before the super call will be drawn to the background, so now the selector is drawn behind the list, so the selected item's text is visible too
+        canvas.drawRect( selectorRect, selectorPaint );
         super.dispatchDraw( canvas );
     }
 
@@ -442,7 +449,7 @@ public class ScrollPicker extends LinearLayout {
         int visibleHeightOfItem = ( rect.height() > cellHeight ) ? rect.height() % cellHeight : rect.height(); // % cellHeight: the space view's height is multiple of cellHeight
         int scrollYby;
         if( Math.abs( visibleHeightOfItem ) <= cellHeight / 2 ) {
-            scrollYby = visibleHeightOfItem + POSITIVE_SCROLL_CORRECTION;
+            scrollYby = visibleHeightOfItem;
         } else {
             scrollYby = visibleHeightOfItem - cellHeight;
         }
@@ -582,8 +589,7 @@ public class ScrollPicker extends LinearLayout {
     }
 
     public interface OnValueChangeListener {
-
-        void onValueChange( int newValue ); // if we use the Int implementation, send the Value itself, otherwise send the index of the selected String
+        void onValueChange( int newValue ); // if we use the Int implementation, send the value itself, otherwise send the index of the selected String
     }
 
 }
