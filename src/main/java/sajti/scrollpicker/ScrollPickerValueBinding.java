@@ -1,4 +1,4 @@
-package sajti.scroll_picker;
+package sajti.scrollpicker;
 
 import android.databinding.BindingAdapter;
 import android.databinding.InverseBindingAdapter;
@@ -11,7 +11,12 @@ public class ScrollPickerValueBinding {
     @BindingAdapter( value = "valueAttrChanged" )
     public static void setListener( ScrollPicker scrollPicker, final InverseBindingListener listener ) {
         if( listener != null ) {
-            scrollPicker.addOnValueChangedListener( newValue -> listener.onChange() );
+            scrollPicker.addOnValueChangedListener( new ScrollPicker.OnValueChangeListener() {
+                @Override
+                public void onValueChange( int newValue ) {
+                    listener.onChange();
+                }
+            } );
         }
     }
 

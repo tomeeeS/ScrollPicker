@@ -1,4 +1,4 @@
-package sajti.scroll_picker;
+package sajti.scrollpicker;
 
 import android.animation.ObjectAnimator;
 import android.content.Context;
@@ -231,7 +231,7 @@ public class ScrollPicker extends LinearLayout {
     /**
      * Data binding helper method for {@link #setList(ArrayList)}.
      */
-    public void setList( ObservableField< ArrayList > items ) {
+    public void setList( final ObservableField< ArrayList > items ) {
         setList( items.get() );
         items.addOnPropertyChangedCallback( new Observable.OnPropertyChangedCallback() {
             @Override
@@ -416,15 +416,18 @@ public class ScrollPicker extends LinearLayout {
         inflater.inflate( LAYOUT, this, true );
         selectorPaint = new Paint();
 
-        scrollerTask = () -> {
-            int newPosition = scrollView.getScrollY();
-            if( lastScrollY == newPosition ) { // has probably stopped. we can't be sure unfortunately and this is the best you can do with the lacking android api.
-                scrollView.fling( 0 ); // we stop the scrolling to be sure. better than smoothScrollTo( 0, 0 ): it jumps once and back fast while stopping and looks bad
-                scrollYTo.set( lastScrollY );
-                selectNearestItemOnScrollStop();
-            } else {
-                lastScrollY = scrollView.getScrollY();
-                restartScrollStopCheck();
+        scrollerTask = new Runnable() {
+            @Override
+            public void run() {
+                int newPosition = scrollView.getScrollY();
+                if( lastScrollY == newPosition ) { // has probably stopped. we can't be sure unfortunately and this is the best you can do with the lacking android api.
+                    scrollView.fling( 0 ); // we stop the scrolling to be sure. better than smoothScrollTo( 0, 0 ): it jumps once and back fast while stopping and looks bad
+                    scrollYTo.set( lastScrollY );
+                    ScrollPicker.this.selectNearestItemOnScrollStop();
+                } else {
+                    lastScrollY = scrollView.getScrollY();
+                    ScrollPicker.this.restartScrollStopCheck();
+                }
             }
         };
         scrollView = findViewById( R.id.scrollView );
@@ -472,7 +475,12 @@ public class ScrollPicker extends LinearLayout {
                     selectorRect.bottom,
                     getWidth(),
                     getHeight() );
-            post( this::initScrollView );
+            post( new Runnable() {
+                @Override
+                public void run() {
+                    ScrollPicker.this.initScrollView();
+                }
+            } );
         }
     }
 
