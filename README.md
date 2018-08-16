@@ -1,5 +1,5 @@
 # ScrollPicker
-Customizable and data-bindable NumberPicker-like custom view for android.  
+Customizable and data-bindable NumberPicker-like UI element for android.  
 A [demo project](https://github.com/tomeeeS/ScrollPickerDemo) showcasing functionality is available.
 
 ## Requirements
