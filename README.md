@@ -2,7 +2,7 @@
 Customizable and data-bindable NumberPicker-like UI element for android.  
 A [demo project](https://github.com/tomeeeS/ScrollPickerDemo) showcasing functionality is available.
 
-## Requirements
+## Dependencies
 You don't need Java 8, nor kotlin compiler for this as it was written in Java 7.    
 Uses com.android.support:appcompat-v7:28.0.0-alpha1 version of the v7 support lib. If you use another support lib version in your app you might have a problem - which can be solved by either using this exact version I mentioned OR with gradle dependency constraints as far as I know.
 
