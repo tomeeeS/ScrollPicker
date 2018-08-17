@@ -23,7 +23,6 @@ import android.view.ViewGroup;
 import android.view.ViewTreeObserver;
 import android.view.animation.LinearInterpolator;
 import android.widget.LinearLayout;
-import android.widget.Space;
 import android.widget.TextView;
 
 import java.util.ArrayList;
@@ -84,7 +83,7 @@ public class ScrollPicker extends LinearLayout {
     private ListItemType listItemType; // String or Int
     private NestedScrollView scrollView; // the parent view in which we have the elements in a vertical LinearLayout. Good for scrolling.
     private Context context;
-    private int itemsToShow = SHOWN_ITEM_COUNT_DEFAULT; // the maximum item count which will be displayed at a time
+    int itemsToShow = SHOWN_ITEM_COUNT_DEFAULT; // the maximum item count which will be displayed at a time
     private int spaceCellCount; // how many cells equate to the height of the space before (and after) the text views
     private int cellHeight; // height of one item
     private List< OnValueChangeListener > onValueChangeListeners = new LinkedList<>();
@@ -101,7 +100,7 @@ public class ScrollPicker extends LinearLayout {
     private float textSize;
     private int textColor, enabledTextColor;
     private boolean isEnabled;
-    private Integer storedValue;
+    private Integer storedValue; // was there a value set yet and what was it
 
     // region public interface
 
@@ -512,7 +511,7 @@ public class ScrollPicker extends LinearLayout {
     }
 
     private View getSpace( int height ) {
-        Space space = new Space( getContext() );
+        View space = new View( getContext() );
         space.setLayoutParams( new LinearLayout.LayoutParams( LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT ) );
         ViewGroup.MarginLayoutParams p = (ViewGroup.MarginLayoutParams)space.getLayoutParams();
         p.height = height;
