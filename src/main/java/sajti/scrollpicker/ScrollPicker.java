@@ -83,9 +83,9 @@ public class ScrollPicker extends LinearLayout {
     private ListItemType listItemType; // String or Int
     private NestedScrollView scrollView; // the parent view in which we have the elements in a vertical LinearLayout. Good for scrolling.
     private Context context;
-    int itemsToShow = SHOWN_ITEM_COUNT_DEFAULT; // the maximum item count which will be displayed at a time
+    int shownItemCount = SHOWN_ITEM_COUNT_DEFAULT; // the maximum item count which will be displayed at a time
     private int spaceCellCount; // how many cells equate to the height of the space before (and after) the text views
-    private int cellHeight; // height of one item
+    int cellHeight; // (approximate) height of one item
     private List< OnValueChangeListener > onValueChangeListeners = new LinkedList<>();
     private Paint selectorPaint;
     private Rect selectorRect;
@@ -101,6 +101,9 @@ public class ScrollPicker extends LinearLayout {
     private int textColor, enabledTextColor;
     private boolean isEnabled;
     private Integer storedValue; // was there a value set yet and what was it
+    private LinearLayout itemsLayout;
+    private View correctionViewTop;
+    private View correctionViewBottom;
 
     // region public interface
 
@@ -160,10 +163,6 @@ public class ScrollPicker extends LinearLayout {
                 selectItem( index );
                 break;
         }
-    }
-
-    private int getIndexOfValue( int value ) {
-        return getIntItems().indexOf( value );
     }
 
     /**
@@ -276,7 +275,7 @@ public class ScrollPicker extends LinearLayout {
      * items respectively at the middle of the view)
      */
     public void setShownItemCount( int itemsToShow ) {
-        this.itemsToShow = itemsToShow;
+        this.shownItemCount = itemsToShow;
         spaceCellCount = itemsToShow / 2;
         initSelectorAndCellHeight();
         initScrollView();
@@ -369,6 +368,15 @@ public class ScrollPicker extends LinearLayout {
         super.dispatchDraw( canvas );
     }
 
+    // for testing
+    int getListScrollY() {
+        return scrollView.getScrollY();
+    }
+
+    private int getIndexOfValue( int value ) {
+        return getIntItems().indexOf( value );
+    }
+
     private void restartScrollStopCheck() {
         postDelayed( scrollerTask, SCROLL_STOP_CHECK_INTERVAL_MS );
     }
@@ -430,11 +438,43 @@ public class ScrollPicker extends LinearLayout {
             }
         };
         scrollView = findViewById( R.id.scrollView );
+        correctionViewTop = findViewById( R.id.correctionViewTop );
+        correctionViewBottom = findViewById( R.id.correctionViewBottom );
     }
 
     // corrections are necessary at the end of scrolling to set ourself to a valid position
     private void selectNearestItemOnScrollStop() {
-        LinearLayout verticalLayout = (LinearLayout)scrollView.getChildAt( 0 );
+        int firstVisibleItemIndex = getFirstVisibleItemIndex();
+        Rect firstVisibleRect = getFirstVisibleRect( firstVisibleItemIndex );
+
+        // which item should be selected? the item above or below the selection area?
+        // we know by checking how much height of the view of firstVisibleItemIndex is visible
+        int visibleHeightOfItem = ( firstVisibleRect.height() > cellHeight ) ?
+                firstVisibleRect.height() % cellHeight : // % cellHeight: the "space" view's (the one at the start) height is multiple of cellHeight
+                firstVisibleRect.height();
+        int scrollYby = getScrollYby( visibleHeightOfItem ); // how much to scroll the scrollView
+        scrollYBy( scrollYby );
+    }
+
+    private int getScrollYby( int visibleHeightOfItem ) {
+        int scrollYby;
+        if( Math.abs( visibleHeightOfItem ) <= cellHeight / 2 ) {
+            scrollYby = visibleHeightOfItem;
+        } else {
+            scrollYby = visibleHeightOfItem - cellHeight;
+        }
+        return scrollYby;
+    }
+
+    @NonNull
+    private Rect getFirstVisibleRect( int firstVisibleItemIndex ) {
+        View child = itemsLayout.getChildAt( firstVisibleItemIndex );
+        Rect firstVisibleRect = new Rect( 0, 0, child.getWidth(), child.getHeight() );
+        itemsLayout.getChildVisibleRect( child, firstVisibleRect, null );
+        return firstVisibleRect;
+    }
+
+    private int getFirstVisibleItemIndex() {
         int cellCount = scrollView.getScrollY() / cellHeight;
         int spaceHeight = spaceCellCount * cellHeight;
         int firstVisibleItemIndex;
@@ -442,26 +482,13 @@ public class ScrollPicker extends LinearLayout {
             firstVisibleItemIndex = cellCount - ( spaceCellCount - 1 );
         else
             firstVisibleItemIndex = 0;
-        View child = verticalLayout.getChildAt( firstVisibleItemIndex );
-        Rect rect = new Rect( 0, 0, child.getWidth(), child.getHeight() );
-        verticalLayout.getChildVisibleRect( child, rect, null );
-
-        // which item should be selected? the item above or below the selection area?
-        // we know by checking how much height of the view of firstVisibleItemIndex is visible
-        int visibleHeightOfItem = ( rect.height() > cellHeight ) ? rect.height() % cellHeight : rect.height(); // % cellHeight: the space view's height is multiple of cellHeight
-        int scrollYby;
-        if( Math.abs( visibleHeightOfItem ) <= cellHeight / 2 ) {
-            scrollYby = visibleHeightOfItem;
-        } else {
-            scrollYby = visibleHeightOfItem - cellHeight;
-        }
-        scrollYBy( scrollYby );
+        return firstVisibleItemIndex;
     }
 
     private void initSelectorAndCellHeight() {
-        cellHeight = (int)Math.round( (double)getHeight() / (double)itemsToShow );
+        cellHeight = (int)Math.round( (double)getHeight() / (double)shownItemCount );
         if( cellHeight > 0 ) {
-            int cellHeightCeiling = (int)Math.ceil( (double)getHeight() / (double)itemsToShow );
+            int cellHeightCeiling = (int)Math.ceil( (double)getHeight() / (double)shownItemCount );
             selectorRect = new Rect( 0,
                     cellHeightCeiling * spaceCellCount - SELECTOR_HEIGHT_CORRECTION,
                     getWidth(),
@@ -486,19 +513,22 @@ public class ScrollPicker extends LinearLayout {
     private void initScrollView() {
         if( isInited() ) {
             scrollView.removeAllViews();
-            LinearLayout scrollViewParent = new LinearLayout( getContext() );
-            scrollViewParent.setOrientation( LinearLayout.VERTICAL );
+            int scrollViewHeight = cellHeight * shownItemCount;
+            setViewHeight( scrollView, scrollViewHeight );
+            setCorrectionViewsHeights( scrollViewHeight );
+            itemsLayout = new LinearLayout( getContext() );
+            itemsLayout.setOrientation( LinearLayout.VERTICAL );
 
             int spaceHeight = cellHeight * spaceCellCount;
-            scrollViewParent.addView( getSpace( spaceHeight ) );
+            itemsLayout.addView( getSpace( spaceHeight ) );
             for( int i = 0; i < items.size(); ++i )
-                scrollViewParent.addView( getTextView( i ) );
-            if( itemsToShow % 2 == 0 )
+                itemsLayout.addView( getTextView( i ) );
+            if( shownItemCount % 2 == 0 )
                 spaceHeight -= cellHeight;
-            scrollViewParent.addView( getSpace( spaceHeight ) );
+            itemsLayout.addView( getSpace( spaceHeight ) );
 
-            scrollView.addView( scrollViewParent );
-            scrollViewParent.getViewTreeObserver().addOnPreDrawListener( new ViewTreeObserver.OnPreDrawListener() {
+            scrollView.addView( itemsLayout );
+            itemsLayout.getViewTreeObserver().addOnPreDrawListener( new ViewTreeObserver.OnPreDrawListener() {
                 public boolean onPreDraw() { // we scroll to the selected item before presenting ourselves. this is only done at initialization
                     scrollView.getViewTreeObserver().removeOnPreDrawListener( this );
                     int scrollYTo = selectedIndex * cellHeight;
@@ -510,13 +540,28 @@ public class ScrollPicker extends LinearLayout {
         }
     }
 
+    private void setCorrectionViewsHeights( int scrollViewHeight ) {
+        setViewHeight( correctionViewTop, calculateViewHeight( false, scrollViewHeight ) );
+        setViewHeight( correctionViewBottom, calculateViewHeight( true, scrollViewHeight ) );
+    }
+
+    private int calculateViewHeight( boolean isBottom, int scrollViewHeight ) {
+        int heightHalf = ( getHeight() - scrollViewHeight ) / 2;
+        int heightMod = ( getHeight() - scrollViewHeight ) % 2;
+        return heightHalf + (isBottom ? heightMod : 0 );
+    }
+
     private View getSpace( int height ) {
         View space = new View( getContext() );
         space.setLayoutParams( new LinearLayout.LayoutParams( LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT ) );
+        setViewHeight( space, height );
+        return space;
+    }
+
+    private void setViewHeight( View space, int height ) {
         ViewGroup.MarginLayoutParams p = (ViewGroup.MarginLayoutParams)space.getLayoutParams();
         p.height = height;
         space.setLayoutParams( p );
-        return space;
     }
 
     private boolean isInited() {
@@ -524,14 +569,14 @@ public class ScrollPicker extends LinearLayout {
     }
 
     @NonNull
-    private TextView getTextView( int i ) {
+    private TextView getTextView( int itemIndex ) {
         TextView textView = new TextView( getContext() );
         switch( listItemType ) {
             case INT:
-                textView.setText( "" + getIntItems().get( i ) );
+                textView.setText( "" + getIntItems().get( itemIndex ) );
                 break;
             case STRING:
-                textView.setText( getStringItems().get( i ) );
+                textView.setText( getStringItems().get( itemIndex ) );
                 break;
         }
         textView.setLayoutParams( new LinearLayout.LayoutParams( LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT ) );
