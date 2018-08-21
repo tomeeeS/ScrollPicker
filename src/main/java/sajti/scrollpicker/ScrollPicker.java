@@ -32,7 +32,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import static android.view.Gravity.CENTER;
 
-/**
+/*
  * Made by Tamás Sajti  tamas.sajti.dev@gmail.com
  * To have a customizable and data-bindable NumberPicker.
  *
@@ -62,6 +62,10 @@ import static android.view.Gravity.CENTER;
  *      current scrolling and start the correction scroll).
  *
  */
+
+/**
+ * Customizable and data-bindable NumberPicker-like UI element.
+ */
 public class ScrollPicker extends LinearLayout {
 
     private static final int LAYOUT = R.layout.scroll_picker;
@@ -70,8 +74,9 @@ public class ScrollPicker extends LinearLayout {
     private static final boolean IS_SET_NEXT_OR_PREVIOUS_ITEM_ENABLED = true;
     private static final int SCROLL_STOP_CHECK_INTERVAL_MS = 20;
     private static final int TEXT_SIZE_DEFAULT = 18;
-    private static final int SELECTOR_HEIGHT_CORRECTION = 1;
     private static final int SCROLL_INTO_PLACE_DURATION_MS_DEFAULT = 120;
+    private static final int SELECTOR_STYLE_DEFAULT_INDEX = 0;
+    public static final int SELECTOR_STROKE_WIDTH = 4;
     private static int SELECTOR_COLOR_DEFAULT;
     private static int TEXT_COLOR_DISABLED;
     private static int TEXT_COLOR_DEFAULT;
@@ -83,7 +88,7 @@ public class ScrollPicker extends LinearLayout {
     private ListItemType listItemType; // String or Int
     private NestedScrollView scrollView; // the parent view in which we have the elements in a vertical LinearLayout. Good for scrolling.
     private Context context;
-    int shownItemCount = SHOWN_ITEM_COUNT_DEFAULT; // the maximum item count which will be displayed at a time
+    int shownItemCount = SHOWN_ITEM_COUNT_DEFAULT; // how many items can be shown at a time
     private int spaceCellCount; // how many cells equate to the height of the space before (and after) the text views
     int cellHeight; // (approximate) height of one item
     private List< OnValueChangeListener > onValueChangeListeners = new LinkedList<>();
@@ -102,8 +107,10 @@ public class ScrollPicker extends LinearLayout {
     private boolean isEnabled;
     private Integer storedValue; // was there a value set yet and what was it
     private LinearLayout itemsLayout;
-    private View correctionViewTop;
+    private View correctionViewTop; // these are to take up the space which is left when total view height is not divisible by shownItemCount
     private View correctionViewBottom;
+    private SelectorStyle selectorStyle;
+    private int selectorRectInset;
 
     // region public interface
 
@@ -271,12 +278,11 @@ public class ScrollPicker extends LinearLayout {
     }
 
     /**
-     * Sets the maximum item count which will be displayed at a time. (Maximum because at the start and at the end of the list there is space to allow us to select the first or last
-     * items respectively at the middle of the view)
+     * Sets how many items can be shown at a time
      */
-    public void setShownItemCount( int itemsToShow ) {
-        this.shownItemCount = itemsToShow;
-        spaceCellCount = itemsToShow / 2;
+    public void setShownItemCount( int shownItemCount ) {
+        this.shownItemCount = shownItemCount;
+        spaceCellCount = shownItemCount / 2;
         initSelectorAndCellHeight();
         initScrollView();
     }
@@ -297,6 +303,33 @@ public class ScrollPicker extends LinearLayout {
      */
     public void addOnValueChangedListener( OnValueChangeListener onValueChangeListener ) {
         onValueChangeListeners.add( onValueChangeListener );
+    }
+
+    /**
+     * Sets the selector display style.
+     */
+    public void setSelectorStyle( SelectorStyle selectorStyle ) {
+        if( this.selectorStyle == null || this.selectorStyle != selectorStyle ) {
+            this.selectorStyle = selectorStyle;
+            switch( selectorStyle ) {
+                case RECTANGLE_FILLED:
+                    selectorRectInset = SELECTOR_STROKE_WIDTH / 2;
+                    selectorPaint.setStyle( Paint.Style.FILL_AND_STROKE );
+                    break;
+                case RECTANGLE:
+                    selectorRectInset = SELECTOR_STROKE_WIDTH / 2;
+                    selectorPaint.setStyle( Paint.Style.STROKE );
+                    break;
+                case CLASSIC:
+                    selectorPaint.setStyle( Paint.Style.STROKE );
+                    selectorRectInset = -SELECTOR_STROKE_WIDTH / 2;
+                    break;
+//                case CLASSIC_SHORT: // same as classic but with only the middle third of width?
+//                    break;
+            }
+            setSelectorRect();
+            invalidate();
+        }
     }
 
     /**
@@ -367,8 +400,8 @@ public class ScrollPicker extends LinearLayout {
         canvas.drawRect( selectorRect, selectorPaint );
         super.dispatchDraw( canvas );
     }
-
     // for testing
+
     int getListScrollY() {
         return scrollView.getScrollY();
     }
@@ -390,7 +423,7 @@ public class ScrollPicker extends LinearLayout {
         TypedArray attributesArray = context.obtainStyledAttributes( attrs, R.styleable.ScrollPicker );
 
         setSelectorColor( attributesArray.getColor( R.styleable.ScrollPicker_selectorColor, SELECTOR_COLOR_DEFAULT ) );
-        selectorPaint.setStyle( Paint.Style.FILL );
+        setSelectorStyle( SelectorStyle.values()[ attributesArray.getInt( R.styleable.ScrollPicker_selectorStyle, SELECTOR_STYLE_DEFAULT_INDEX ) ] );
         setShownItemCount( attributesArray.getInt( R.styleable.ScrollPicker_itemsToShow, SHOWN_ITEM_COUNT_DEFAULT ) );
 
         textSize = attributesArray.getFloat( R.styleable.ScrollPicker_textSize, TEXT_SIZE_DEFAULT );
@@ -422,6 +455,7 @@ public class ScrollPicker extends LinearLayout {
         LayoutInflater inflater = (LayoutInflater)context.getSystemService( Context.LAYOUT_INFLATER_SERVICE );
         inflater.inflate( LAYOUT, this, true );
         selectorPaint = new Paint();
+        selectorPaint.setStrokeWidth( SELECTOR_STROKE_WIDTH );
 
         scrollerTask = new Runnable() {
             @Override
@@ -488,11 +522,7 @@ public class ScrollPicker extends LinearLayout {
     private void initSelectorAndCellHeight() {
         cellHeight = (int)Math.round( (double)getHeight() / (double)shownItemCount );
         if( cellHeight > 0 ) {
-            int cellHeightCeiling = (int)Math.ceil( (double)getHeight() / (double)shownItemCount );
-            selectorRect = new Rect( 0,
-                    cellHeightCeiling * spaceCellCount - SELECTOR_HEIGHT_CORRECTION,
-                    getWidth(),
-                    cellHeightCeiling * ( spaceCellCount + 1 ) );
+            setSelectorRect();
             selectPreviousItemRect = new Rect( 0,
                     0,
                     getWidth(),
@@ -508,6 +538,14 @@ public class ScrollPicker extends LinearLayout {
                 }
             } );
         }
+    }
+
+    private void setSelectorRect() {
+        int cellHeightCeiling = (int)Math.ceil( (double)getHeight() / (double)shownItemCount );
+        selectorRect = new Rect( selectorRectInset,
+                cellHeightCeiling * spaceCellCount,
+                getWidth() - selectorRectInset,
+                cellHeightCeiling * ( spaceCellCount + 1 ) );
     }
 
     private void initScrollView() {
@@ -582,10 +620,10 @@ public class ScrollPicker extends LinearLayout {
         textView.setLayoutParams( new LinearLayout.LayoutParams( LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT ) );
         textView.setTextSize( TypedValue.COMPLEX_UNIT_SP, textSize );
         textView.setTextColor( textColor );
-        textView.setGravity( CENTER );
         ViewGroup.MarginLayoutParams p = (ViewGroup.MarginLayoutParams)textView.getLayoutParams();
         p.height = cellHeight;
         textView.setLayoutParams( p );
+        textView.setGravity( CENTER );
         return textView;
     }
 
