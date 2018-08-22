@@ -241,6 +241,7 @@ public class ScrollPicker extends LinearLayout {
     public void setSelectedTextSize( float selectedTextSize ) {
         hasSelectedTextSizeBeenSetByUser = true;
         this.selectedTextSize = selectedTextSize;
+        initScrollView();
     }
 
     /**
@@ -602,7 +603,7 @@ public class ScrollPicker extends LinearLayout {
 
             scrollView.addView( itemsLayout );
             itemsLayout.getViewTreeObserver().addOnPreDrawListener( new ViewTreeObserver.OnPreDrawListener() {
-                public boolean onPreDraw() { // we scroll to the selected item before presenting ourselves. this is only done at initialization
+                public boolean onPreDraw() { // sets the position to the selected item without animation
                     scrollView.getViewTreeObserver().removeOnPreDrawListener( this );
                     int scrollYTo = selectedIndex * cellHeight;
                     scrollView.scrollTo( 0, scrollYTo );
