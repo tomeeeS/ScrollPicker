@@ -9,9 +9,11 @@
             <!--<enum name="classicShort" value="3"/>-->
         </attr>
         <attr name="textColor" format="integer"/>
+        <attr name="selectedTextColor" format="integer"/>
         <attr name="itemsToShow" format="integer"/>
         <attr name="value" format="integer"/>
         <attr name="textSize" format="float"/>
+        <attr name="selectedTextSize" format="float"/>
         <attr name="isEnabled" format="boolean"/>
         <attr name="list" format="reference" />
     </declare-styleable>
