@@ -645,9 +645,9 @@ public class ScrollPicker extends LinearLayout {
     @NonNull
     private TextView getTextView( int itemIndex ) {
         TextView textView = new TextView( getContext() );
+        setTextViewStyle( itemIndex, textView );
         setTextViewLayoutParams( textView );
         setText( itemIndex, textView );
-        setTextViewStyle( itemIndex, textView );
         return textView;
     }
 
@@ -668,6 +668,8 @@ public class ScrollPicker extends LinearLayout {
 
     private void setTextViewLayoutParams( TextView textView ) {
         textView.setLayoutParams( new LayoutParams( LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT ) );
+        int verticalAlignmentCorrection = (int) -( textView.getTextSize() / 8 );
+        textView.setPadding( 0, verticalAlignmentCorrection, 0, 0 ); // text is not centered for some reason and it needs correction
         MarginLayoutParams p = (MarginLayoutParams)textView.getLayoutParams();
         p.height = cellHeight;
         textView.setLayoutParams( p );
