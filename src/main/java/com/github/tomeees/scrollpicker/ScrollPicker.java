@@ -1,4 +1,4 @@
-package sajti.scrollpicker;
+package com.github.tomeees.scrollpicker;
 
 import android.animation.ObjectAnimator;
 import android.content.Context;

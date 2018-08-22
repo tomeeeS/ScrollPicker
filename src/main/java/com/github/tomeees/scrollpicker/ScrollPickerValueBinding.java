@@ -1,4 +1,4 @@
-package sajti.scrollpicker;
+package com.github.tomeees.scrollpicker;
 
 import android.databinding.BindingAdapter;
 import android.databinding.InverseBindingAdapter;

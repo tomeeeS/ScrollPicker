@@ -1,4 +1,4 @@
-package sajti.scrollpicker;
+package com.github.tomeees.scrollpicker;
 
 /**
  * Display style possibilities for the {@link ScrollPicker}'s selector.
