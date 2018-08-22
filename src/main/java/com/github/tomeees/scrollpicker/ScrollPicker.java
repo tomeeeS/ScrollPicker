@@ -36,8 +36,7 @@ import static android.view.Gravity.CENTER;
  * Made by Tamás Sajti  tamas.sajti.dev@gmail.com
  * To have a customizable and data-bindable NumberPicker.
  *
- * project home:                          https://github.com/tomeeeS/ScrollPicker
- * demo project showcasing functionality: https://github.com/tomeeeS/ScrollPickerDemo
+ * project home:                          https://github.com/tomeeeS/ScrollPickerDemo
  *
  * Notes:
  * - The items can't be edited like in NumberPicker.
@@ -48,10 +47,12 @@ import static android.view.Gravity.CENTER;
  *
  * Glossary:
  * value    - consistent with NumberPicker, if the list we set was such that its items are of String, then the value corresponds to the index of the selected item in the list,
- *              while in case of Integers it is the item's int value.
+ *              while in case of integers it is the item's int value.
  * selector - the visual indication about the currently selected item at the middle of the view
  *
+ *
  * Licence: Apache-2.0 (do with it whatever you please)
+ *
  *
  * Implementation advices: (for those who might want to make changes)
  * - Do Not try to use setOnScrollChangeListener for listening for scroll stop. Unfortunately it isn't possible, android doesn't give any callbacks for that
@@ -59,8 +60,7 @@ import static android.view.Gravity.CENTER;
  *      detect this event. There is no call to happen when oldY equals y - that would tell us clearly that the scrolling has stopped -
  *      and sometimes the last change is as much as 6 pixels so there is also no sensible threshold value.
  *      This scrollerTask solution is the best I could come up with. (check for slowing scroll from time to time and when it's in a threshold value we stop the
- *      current scrolling and start the correction scroll).
- *
+ *      current scrolling and start the correction scroll). *
  */
 
 /**
@@ -105,8 +105,7 @@ public class ScrollPicker extends LinearLayout {
     private int lastScrollY;
     private AtomicInteger scrollYTo = new AtomicInteger();
     private float textSize;
-    private int enabledTextColor;
-    private Integer selectedTextColor;
+    private int enabledTextColor, selectedTextColor;
     private boolean isEnabled;
     private Integer storedValue; // was there a value set yet and what was it
     private LinearLayout itemsLayout;
