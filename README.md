@@ -6,7 +6,7 @@ A [demo project](https://github.com/tomeeeS/ScrollPickerDemo) showcasing functio
 ## Dependencies
 * Purely written in Java 7.  
 * Minsdk is 11.  
-* Uses com.android.support:appcompat-v7:28.0.0-rc01 version of the v7 support lib. If you use another support lib version in your app you might have a problem - which can be solved by either using this exact version mentioned OR with gradle dependency constraints as far as I know.
+* Uses com.android.support:appcompat-v7:28.0.0-rc01 version of the v7 support lib. If you use another support lib version in your app you might have a problem - which can be solved either by using this exact version mentioned OR with gradle dependency constraints as far as I know.
 
 ## Donation
 If you found it useful, please consider donating. Thank you!  
