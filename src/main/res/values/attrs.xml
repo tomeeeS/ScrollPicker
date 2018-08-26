@@ -10,11 +10,11 @@
         </attr>
         <attr name="textColor" format="integer"/>
         <attr name="selectedTextColor" format="integer"/>
-        <attr name="itemsToShow" format="integer"/>
+        <attr name="shownItemCount" format="integer"/>
         <attr name="value" format="integer"/>
         <attr name="textSize" format="float"/>
         <attr name="selectedTextSize" format="float"/>
         <attr name="isEnabled" format="boolean"/>
-        <attr name="list" format="reference" />
+        <attr name="isTextBold" format="boolean"/>
     </declare-styleable>
 </resources>

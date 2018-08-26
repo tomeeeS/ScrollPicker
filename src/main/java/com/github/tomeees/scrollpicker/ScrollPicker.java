@@ -9,6 +9,7 @@ import android.databinding.ObservableField;
 import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.graphics.Rect;
+import android.graphics.Typeface;
 import android.support.annotation.NonNull;
 import android.support.v4.content.ContextCompat;
 import android.support.v4.widget.NestedScrollView;
@@ -123,6 +124,7 @@ public class ScrollPicker extends LinearLayout {
     protected float selectedTextSize;
     protected boolean hasSelectedTextColorBeenSetByUser = false;
     protected boolean hasSelectedTextSizeBeenSetByUser = false;
+    private boolean isTextBold;
 
     // region public interface
 
@@ -140,21 +142,6 @@ public class ScrollPicker extends LinearLayout {
         setWillNotDraw( false );
         init();
         initValues( attrs );
-    }
-
-    /**
-     * Gets the selected item's index in the list. Can be data-bound (2-way). //todo
-     */
-    public int getSelectedIndex() {
-        return selectedIndex;
-    }
-
-    /**
-     * Sets the selected item with its index position in the list. Can be data-bound (2-way).
-     * <p>If you set an invalid index, the first item will be selected.</p>
-     */
-    public void setSelectedIndex( int selectedIndex ) {
-        setValue( getValueForIndex( selectedIndex ) );
     }
 
     /**
@@ -177,7 +164,7 @@ public class ScrollPicker extends LinearLayout {
         if( isListInited ) {
             if( value != getValueForIndex( selectedIndex ) ) {
                 isExternalValueChange = true; // external setValue, no need to trigger value changed callback
-                selectItemFromIndex( value );
+                selectItemFromValue( value );
                 if( isInited() ) {
                     scrollYTo( selectedIndex * cellHeight );
                     invalidate();
@@ -225,6 +212,15 @@ public class ScrollPicker extends LinearLayout {
             if( isInited() )
                 initScrollView();
         }
+    }
+
+    /**
+     * Sets if all the item texts should be bold or not.
+     *
+     * @param isTextBold Will be bold if true, not if false.
+     */
+    public void setTextBold( boolean isTextBold ) {
+        this.isTextBold = isTextBold;
     }
 
     /**
@@ -446,7 +442,7 @@ public class ScrollPicker extends LinearLayout {
         super.dispatchDraw( canvas );
     }
 
-    protected void selectItemFromIndex( int index ) {
+    protected void selectItemFromValue( int index ) {
         switch( listItemType ) {
             case INT:
                 selectItem( getIndexOfValue( index ) );
@@ -492,7 +488,7 @@ public class ScrollPicker extends LinearLayout {
 
         setSelectorColor( attributesArray.getColor( R.styleable.ScrollPicker_selectorColor, SELECTOR_COLOR_DEFAULT ) );
         setSelectorStyle( SelectorStyle.values()[ attributesArray.getInt( R.styleable.ScrollPicker_selectorStyle, SELECTOR_STYLE_DEFAULT_INDEX ) ] );
-        setShownItemCount( attributesArray.getInt( R.styleable.ScrollPicker_itemsToShow, SHOWN_ITEM_COUNT_DEFAULT ) );
+        setShownItemCount( attributesArray.getInt( R.styleable.ScrollPicker_shownItemCount, SHOWN_ITEM_COUNT_DEFAULT ) );
 
         setTextSize( attributesArray.getFloat( R.styleable.ScrollPicker_textSize, TEXT_SIZE_DEFAULT ) );
         if( attributesArray.hasValue( R.styleable.ScrollPicker_selectedTextSize ) ) {
@@ -503,6 +499,7 @@ public class ScrollPicker extends LinearLayout {
         }
         setTextColor( attributesArray.getInt( R.styleable.ScrollPicker_textColor, TEXT_COLOR_DEFAULT ) );
         setEnabled( attributesArray.getBoolean( R.styleable.ScrollPicker_isEnabled, true ) );
+        setTextBold( attributesArray.getBoolean( R.styleable.ScrollPicker_isTextBold, false ) );
 
         attributesArray.recycle();
     }
@@ -693,6 +690,8 @@ public class ScrollPicker extends LinearLayout {
             textView.setTextSize( TypedValue.COMPLEX_UNIT_SP, textSize );
             textView.setTextColor( isEnabled ? enabledTextColor : TEXT_COLOR_DISABLED );
         }
+        if( isTextBold )
+            textView.setTypeface( textView.getTypeface(), Typeface.BOLD );
     }
 
     protected void setTextViewLayoutParams( TextView textView ) {
