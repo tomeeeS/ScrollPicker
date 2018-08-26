@@ -38,18 +38,18 @@ import static android.view.Gravity.CENTER;
  *
  * project home:                          https://github.com/tomeeeS/ScrollPickerDemo
  *
+ * Glossary:
+ * value    - consistent with NumberPicker, if the list we set was such that its items are of String, then the value corresponds to the index of the selected item in the list,
+ *              while in case of integers it is the item's int value.
+ * selector - the visual indication about the currently selected item at the middle of the view
+ *
  * Notes:
  * - The items can't be edited like in NumberPicker.
  * - When you set a String list for items, the value is always just the index and not a custom interval of numbers set with setMin, setMax as in NumberPicker,
  *      but I don't think that's a real way of dealing with that obscure use case anyway, it's not robust for one, as you have to make sure that
  *      "The length of the displayed values array must be equal to the range of selectable numbers which is equal to getMaxValue() - getMinValue() + 1"
  *      why would you need to worry about making 3 calls right instead of just dealing with an offset on the indices at one place in the logic?
- *
- * Glossary:
- * value    - consistent with NumberPicker, if the list we set was such that its items are of String, then the value corresponds to the index of the selected item in the list,
- *              while in case of integers it is the item's int value.
- * selector - the visual indication about the currently selected item at the middle of the view
- *
+ * *
  *
  * Licence: Apache-2.0 (do with it whatever you please)
  *
@@ -60,7 +60,13 @@ import static android.view.Gravity.CENTER;
  *      detect this event. There is no call to happen when oldY equals y - that would tell us clearly that the scrolling has stopped -
  *      and sometimes the last change is as much as 6 pixels so there is also no sensible threshold value.
  *      This scrollerTask solution is the best I could come up with. (check for slowing scroll from time to time and when it's in a threshold value we stop the
- *      current scrolling and start the correction scroll). *
+ *      current scrolling and start the correction scroll).
+ *
+ * - I tried to add a data-bindable selected item index attribute to be able to set the selected item with its index in the case of integers too, but
+ *      it "clashed" with the value too much, for example when you set the value, in the code you also have to set the selected index and vice versa, and
+ *      the implementation of setting the selected index was the easiest by setting the value, so a loop was created. I felt introducing more flags that
+ *      correspond to what is getting set where and what not to update when was really doing more harm by making the code less clean and readable.
+ *      And this is a marginal use case anyway, the value is good enough for synchronizing with the view model.
  */
 
 /**
@@ -295,7 +301,6 @@ public class ScrollPicker extends LinearLayout {
         this.shownItemCount = shownItemCount;
         spaceCellCount = shownItemCount / 2;
         initSelectorAndCellHeight();
-        initScrollView();
     }
 
     /**
@@ -578,7 +583,7 @@ public class ScrollPicker extends LinearLayout {
     }
 
     protected void initSelectorAndCellHeight() {
-        cellHeight = (int)Math.round( (double)getHeight() / (double)shownItemCount );
+        cellHeight = getHeight() / shownItemCount;
         if( cellHeight > 0 ) {
             setSelectorRect();
             selectPreviousItemRect = new Rect( 0,
@@ -612,7 +617,7 @@ public class ScrollPicker extends LinearLayout {
             int scrollViewHeight = cellHeight * shownItemCount;
             setViewHeight( scrollView, scrollViewHeight );
             setCorrectionViewsHeights( scrollViewHeight );
-            itemsLayout = new LinearLayout( getContext() );
+            itemsLayout = new LinearLayout( scrollView.getContext() );
             itemsLayout.setOrientation( LinearLayout.VERTICAL );
 
             int spaceHeight = cellHeight * spaceCellCount;
@@ -633,6 +638,8 @@ public class ScrollPicker extends LinearLayout {
                     return false;
                 }
             } );
+            scrollView.invalidate();
+            scrollView.requestLayout();
         }
     }
 
@@ -667,8 +674,8 @@ public class ScrollPicker extends LinearLayout {
     @NonNull
     protected TextView getTextView( int itemIndex ) {
         TextView textView = new TextView( getContext() );
-        setTextViewStyle( itemIndex, textView );
         setTextViewLayoutParams( textView );
+        setTextViewStyle( itemIndex, textView );
         setText( itemIndex, textView );
         return textView;
     }
