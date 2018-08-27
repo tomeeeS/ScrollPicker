@@ -1,7 +1,6 @@
 # ScrollPicker
-Customizable and data-bindable NumberPicker-like UI element for android.  
-This repo is for including the code as an Android module if you want to edit it.  
-Project home with documentation is [here](https://github.com/tomeeeS/ScrollPickerDemo).
+[Here](https://github.com/tomeeeS/ScrollPickerDemo) is the project home with documentation.
+This repo is for including the code and its resources as an Android module if you want to edit it.  
 
 ## Donation
 If you found it useful, please consider donating. Thank you!  
