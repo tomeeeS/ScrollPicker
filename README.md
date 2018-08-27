@@ -1,27 +1,7 @@
 # ScrollPicker
 Customizable and data-bindable NumberPicker-like UI element for android.  
-This repo is for including the code as an Android module.  
-A [demo project](https://github.com/tomeeeS/ScrollPickerDemo) showcasing functionality and containing tests is available.
-
-## Download
-In module build.gradle:
-```
-repositories {
-    mavenCentral()
-    ...
-}
-...
-
-dependencies {
-    implementation "com.github.tomeees:scrollpicker:1.1.0"
-    ...
-}
-```
-    
-## Dependencies
-* Purely written in Java 7.  
-* Minsdk is 11.  
-* Uses com.android.support:appcompat-v7:28.0.0-rc01 version of the v7 support lib. If you use another support lib version in your app you might have a problem - which can be solved either by using this exact version mentioned OR with gradle dependency constraints as far as I know.
+This repo is for including the code as an Android module if you want to edit it.  
+Project home with documentation is [here](https://github.com/tomeeeS/ScrollPickerDemo).
 
 ## Donation
 If you found it useful, please consider donating. Thank you!  
