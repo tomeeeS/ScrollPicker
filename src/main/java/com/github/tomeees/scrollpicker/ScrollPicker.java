@@ -125,6 +125,7 @@ public class ScrollPicker extends LinearLayout {
     protected boolean hasSelectedTextColorBeenSetByUser = false;
     protected boolean hasSelectedTextSizeBeenSetByUser = false;
     private boolean isTextBold;
+    private float selectorLineWidth;
 
     // region public interface
 
@@ -336,16 +337,17 @@ public class ScrollPicker extends LinearLayout {
             this.selectorStyle = selectorStyle;
             switch( selectorStyle ) {
                 case RECTANGLE_FILLED:
-                    selectorRectHorizontalInset = SELECTOR_STROKE_WIDTH / 2;
+                    selectorRectHorizontalInset = (int)selectorLineWidth / 2;
                     selectorPaint.setStyle( Paint.Style.FILL_AND_STROKE );
                     break;
                 case RECTANGLE:
-                    selectorRectHorizontalInset = SELECTOR_STROKE_WIDTH / 2;
+                    selectorRectHorizontalInset = (int)selectorLineWidth * 2; // we pull the left and right sides in a little bit
                     selectorPaint.setStyle( Paint.Style.STROKE );
                     break;
                 case CLASSIC:
+                default:
                     selectorPaint.setStyle( Paint.Style.STROKE );
-                    selectorRectHorizontalInset = -SELECTOR_STROKE_WIDTH / 2;
+                    selectorRectHorizontalInset = -(int)selectorLineWidth / 2;
                     break;
 //                case CLASSIC_SHORT: // same as classic but with only the middle third of width?
 //                    break;
@@ -353,6 +355,16 @@ public class ScrollPicker extends LinearLayout {
             setSelectorRect();
             invalidate();
         }
+    }
+
+    /**
+     * Sets the selector lines' width.
+     * @param selectorLineWidth The width. Default is 4. If 0, no selector will be drawn.
+     */
+    public void setSelectorLineWidth( float selectorLineWidth ) {
+        this.selectorLineWidth = selectorLineWidth;
+        selectorPaint.setStrokeWidth( selectorLineWidth );
+        initScrollView();
     }
 
     /**
@@ -438,7 +450,8 @@ public class ScrollPicker extends LinearLayout {
     @Override
     protected void dispatchDraw( Canvas canvas ) {
         // whatever is before the super call will be drawn to the background, so now the selector is drawn behind the list, so the selected item's text is visible too
-        canvas.drawRect( selectorRect, selectorPaint );
+        if( selectorLineWidth > 0 )
+            canvas.drawRect( selectorRect, selectorPaint );
         super.dispatchDraw( canvas );
     }
 
@@ -484,8 +497,11 @@ public class ScrollPicker extends LinearLayout {
         SELECTOR_COLOR_DEFAULT = ContextCompat.getColor( context, R.color.selectorColorDefault );
 
         isEnabled = true;
+        selectorPaint = new Paint();
+
         TypedArray attributesArray = context.obtainStyledAttributes( attrs, R.styleable.ScrollPicker );
 
+        setSelectorLineWidth( attributesArray.getFloat( R.styleable.ScrollPicker_selectorLineWidth, SELECTOR_STROKE_WIDTH ) );
         setSelectorColor( attributesArray.getColor( R.styleable.ScrollPicker_selectorColor, SELECTOR_COLOR_DEFAULT ) );
         setSelectorStyle( SelectorStyle.values()[ attributesArray.getInt( R.styleable.ScrollPicker_selectorStyle, SELECTOR_STYLE_DEFAULT_INDEX ) ] );
         setShownItemCount( attributesArray.getInt( R.styleable.ScrollPicker_shownItemCount, SHOWN_ITEM_COUNT_DEFAULT ) );
@@ -514,8 +530,6 @@ public class ScrollPicker extends LinearLayout {
     protected void init() {
         LayoutInflater inflater = (LayoutInflater)context.getSystemService( Context.LAYOUT_INFLATER_SERVICE );
         inflater.inflate( LAYOUT, this, true );
-        selectorPaint = new Paint();
-        selectorPaint.setStrokeWidth( SELECTOR_STROKE_WIDTH );
 
         scrollerTask = new Runnable() {
             @Override
