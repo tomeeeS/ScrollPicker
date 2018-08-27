@@ -27,6 +27,7 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -259,9 +260,9 @@ public class ScrollPicker extends LinearLayout {
     }
 
     /**
-     * Data binding helper method for {@link #setList(ArrayList)}.
+     * Data binding helper method for {@link #setList(Collection)}.
      */
-    public void setList( final ObservableField< ArrayList > items ) {
+    public void setList( final ObservableField< ? extends Collection > items ) {
         setList( items.get() );
         items.addOnPropertyChangedCallback( new Observable.OnPropertyChangedCallback() {
             @Override
@@ -274,18 +275,19 @@ public class ScrollPicker extends LinearLayout {
     /**
      * Sets the list whose items this view displays. Can be data-bound. //todo
      *
-     * @param items An ArrayList whose template type must be either String or Integer. Must be non-empty.
-     *              In case of ArrayList&lt;String&gt the value that you can set to this view with {@link #setValue(int)} will correspond to the index of the selected item in this list,
-     *              while in case of ArrayList&lt;Integer&gt it will be the item's int value.
+     * @param items A collection whose template type must be either String or Integer. Must be non-empty.
+     *              In case of Collection&lt;String&gt the value that you can set to this view with {@link #setValue(int)} will correspond to the index of the selected item in this list,
+     *              while in case of Collection&lt;Integer&gt it will be the item's int value.
      */
-    public void setList( ArrayList items ) {
-        if( isListInited ) // if we already had a list set, we set the first item as default
-            setValue( getValueForIndex( SELECTED_INDEX_DEFAULT ) );
-        setListItemType( items );
-        this.items = new ArrayList( items );
+    public void setList( Collection items ) {
+        ArrayList arrayList = new ArrayList( items );
+        setListItemType( arrayList );
+        this.items = arrayList;
+        if( isListInited ) // if we already had a list set, we set the first item of the new list, not the leftover value from the previous list.
+            storedValue = getValueForIndex( SELECTED_INDEX_DEFAULT );
         isListInited = true;
         initScrollView();
-        if( storedValue != null ) {
+        if( storedValue != null ) {  // if we had a value set before, we can set it now that the list was inited
             setValue( storedValue );
             storedValue = null;
         }
