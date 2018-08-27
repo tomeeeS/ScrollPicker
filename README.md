@@ -1,6 +1,7 @@
 # ScrollPicker
-[Here](https://github.com/tomeeeS/ScrollPickerDemo) is the project home with documentation.
+[Here](https://github.com/tomeeeS/ScrollPickerDemo) is the project home with documentation.  
 This repo is for including the code and its resources as an Android module if you want to edit it.  
+Pull requests are welcome of course.
 
 ## Donation
 If you found it useful, please consider donating. Thank you!  
