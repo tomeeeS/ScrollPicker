@@ -40,9 +40,8 @@ import static android.view.Gravity.CENTER;
  * project home:                          https://github.com/tomeeeS/ScrollPickerDemo
  *
  * Glossary:
- * value    - consistent with NumberPicker, if the list we set was such that its items are of String, then the value corresponds to the index of the selected item in the list,
- *              while in case of integers it is the item's int value.
- * selector - the visual indication about the currently selected item at the middle of the view
+ * value    - In case of Ints the value you'll get back will be the selected int item itself, in the other cases it will be the item's index.
+ * selector - The visual indication about the currently selected item at the middle of the view
  *
  * Notes:
  * - The items can't be edited like in NumberPicker.
@@ -259,14 +258,14 @@ public class ScrollPicker extends LinearLayout {
     }
 
     /**
-     * Data binding helper method for {@link #setList(Collection)}.
+     * Data binding helper method for {@link #setItems(Collection)}.
      */
-    public void setList( final ObservableField< ? extends Collection > items ) {
-        setList( items.get() );
+    public void setItems( final ObservableField< ? extends Collection > items ) {
+        setItems( items.get() );
         items.addOnPropertyChangedCallback( new Observable.OnPropertyChangedCallback() {
             @Override
             public void onPropertyChanged( Observable sender, int propertyId ) {
-                setList( items.get() );
+                setItems( items.get() );
             }
         } );
     }
@@ -278,9 +277,9 @@ public class ScrollPicker extends LinearLayout {
      *              In case of Collection&lt;String&gt the value that you can set to this view with {@link #setValue(int)} will correspond to the index of the selected item in this list,
      *              while in case of Collection&lt;Integer&gt it will be the item's int value.
      */
-    public void setList( Collection items ) {
+    public void setItems( Collection items ) {
         ArrayList arrayList = new ArrayList( items );
-        setListItemType( arrayList );
+        setItemsItemType( arrayList );
         this.items = arrayList;
         isListInited = true;
         initScrollView();
@@ -466,7 +465,7 @@ public class ScrollPicker extends LinearLayout {
         }
     }
 
-    protected void setListItemType( ArrayList items ) {
+    protected void setItemsItemType( ArrayList items ) {
         if( items.get( 0 ) instanceof Integer )
             this.listItemType = ListItemType.INT;
         else
