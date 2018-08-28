@@ -14,7 +14,6 @@ import android.support.annotation.NonNull;
 import android.support.v4.content.ContextCompat;
 import android.support.v4.widget.NestedScrollView;
 import android.util.AttributeSet;
-import android.util.Log;
 import android.util.TypedValue;
 import android.view.LayoutInflater;
 import android.view.MotionEvent;
@@ -283,10 +282,9 @@ public class ScrollPicker extends LinearLayout {
         ArrayList arrayList = new ArrayList( items );
         setListItemType( arrayList );
         this.items = arrayList;
-        if( isListInited ) // if we already had a list set, we set the first item of the new list, not the leftover value from the previous list.
-            storedValue = getValueForIndex( SELECTED_INDEX_DEFAULT );
         isListInited = true;
         initScrollView();
+        selectNewItem( SELECTED_INDEX_DEFAULT );
         if( storedValue != null ) {  // if we had a value set before, we can set it now that the list was inited
             setValue( storedValue );
             storedValue = null;
@@ -469,14 +467,10 @@ public class ScrollPicker extends LinearLayout {
     }
 
     protected void setListItemType( ArrayList items ) {
-        if( items.get( 0 ) instanceof String )
+        if( items.get( 0 ) instanceof Integer )
+            this.listItemType = ListItemType.INT;
+        else
             this.listItemType = ListItemType.STRING;
-        else if( items.get( 0 ) instanceof Integer )
-            this.listItemType = ListItemType.INT;
-        else {
-            Log.e( "ScrollPicker", "items template type must be either String or Integer!" );
-            this.listItemType = ListItemType.INT;
-        }
     }
 
     // for testing
@@ -726,13 +720,9 @@ public class ScrollPicker extends LinearLayout {
                 textView.setText( "" + getIntItems().get( itemIndex ) );
                 break;
             case STRING:
-                textView.setText( getStringItems().get( itemIndex ) );
+                textView.setText( items.get( itemIndex ).toString() );
                 break;
         }
-    }
-
-    protected ArrayList< String > getStringItems() {
-        return (ArrayList< String >)items;
     }
 
     protected void scrollYBy( int scrollYby ) {
@@ -742,16 +732,19 @@ public class ScrollPicker extends LinearLayout {
     }
 
     protected void selectItem( int newIndex ) {
-        if(  selectedIndex != newIndex ) {
-            selectedIndex = newIndex;
-            setContentDescription( "" + items.get( selectedIndex ) );
-            if( !isExternalValueChange ) {
-                for( OnValueChangeListener l : onValueChangeListeners )
-                    sendOnValueChanged( newIndex, l );
-            }
-            scrollYTo.set( newIndex * cellHeight );
-            initScrollView();
+        if(  selectedIndex != newIndex )
+            selectNewItem( newIndex );
+    }
+
+    private void selectNewItem( int newIndex ) {
+        selectedIndex = newIndex;
+        setContentDescription( items.get( selectedIndex ).toString() );
+        if( !isExternalValueChange ) {
+            for( OnValueChangeListener l : onValueChangeListeners )
+                sendOnValueChanged( newIndex, l );
         }
+        scrollYTo.set( newIndex * cellHeight );
+        initScrollView();
     }
 
     // if we use the Int implementation, send the Value itself, otherwise send the index of the selected String
