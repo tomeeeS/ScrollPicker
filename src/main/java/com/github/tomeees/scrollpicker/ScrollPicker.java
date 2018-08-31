@@ -79,7 +79,7 @@ public class ScrollPicker extends LinearLayout {
     protected static final int SHOWN_ITEM_COUNT_DEFAULT = 3;
     protected static final boolean IS_SET_NEXT_OR_PREVIOUS_ITEM_ENABLED = true;
     protected static final int SCROLL_STOP_CHECK_INTERVAL_MS = 20;
-    protected static final int TEXT_SIZE_DEFAULT = 16;
+    protected static final float TEXT_SIZE_DEFAULT = 16f;
     public static final float SELECTED_TEXT_SIZE_DEFAULT = TEXT_SIZE_DEFAULT;
     protected static final int SCROLL_INTO_PLACE_DURATION_MS_DEFAULT = 120;
     protected static final int SELECTOR_STYLE_DEFAULT_INDEX = 2; // corresponds to the classic style
@@ -123,8 +123,9 @@ public class ScrollPicker extends LinearLayout {
     protected float selectedTextSize;
     protected boolean hasSelectedTextColorBeenSetByUser = false;
     protected boolean hasSelectedTextSizeBeenSetByUser = false;
-    private boolean isTextBold;
-    private float selectorLineWidth;
+    protected boolean isTextBold;
+    protected float selectorLineWidth;
+    protected int font;
 
     // region public interface
 
@@ -145,10 +146,18 @@ public class ScrollPicker extends LinearLayout {
     }
 
     /**
+     * Data binding helper method for {@link #setEnabled(boolean)}.
+     */
+    @BindingAdapter("isEnabled")
+    public static void setEnabled( ScrollPicker scrollPicker, boolean isEnabled ) {
+        scrollPicker.setEnabled( isEnabled );
+    }
+
+    /**
      * Gets the selected item. Can be data-bound (2-way).
      *
      * @return If the list we set was such that its items are of String, then the returned value corresponds to the index of the selected item in the list,
-     *         while in case of Integers it is the selected item's int value.
+     * while in case of Integers it is the selected item's int value.
      */
     public int getValue() {
         return getValueForIndex( selectedIndex );
@@ -184,27 +193,19 @@ public class ScrollPicker extends LinearLayout {
 
     /**
      * Returns if the view is enabled or not i.e. able to receive and process touch events.
-     *  <p>
-     *  Note: If you disable it it will still work with data-bound changes of your view model or programmatical calls.
-     *  </p>
+     * <p>
+     * Note: If you disable it it will still work with data-bound changes of your view model or programmatical calls.
+     * </p>
      */
     public boolean isEnabled() {
         return isEnabled;
     }
 
     /**
-     * Data binding helper method for {@link #setEnabled(boolean)}.
-     */
-    @BindingAdapter("isEnabled")
-    public static void setEnabled( ScrollPicker scrollPicker, boolean isEnabled ) {
-        scrollPicker.setEnabled( isEnabled );
-    }
-
-    /**
-     *  Should the view be enabled or not i.e. to receive and process touch events. Can be data-bound.
-     *  <p>
-     *  Note: If you disable it it will still work with data-bound changes of your view model or programmatical calls.
-     *  </p>
+     * Should the view be enabled or not i.e. to receive and process touch events. Can be data-bound.
+     * <p>
+     * Note: If you disable it it will still work with data-bound changes of your view model or programmatical calls.
+     * </p>
      */
     public void setEnabled( boolean isEnabled ) {
         if( this.isEnabled != isEnabled ) {
@@ -358,6 +359,7 @@ public class ScrollPicker extends LinearLayout {
 
     /**
      * Sets the selector lines' width.
+     *
      * @param selectorLineWidth The width. Default is 4. If 0, no selector will be drawn.
      */
     public void setSelectorLineWidth( float selectorLineWidth ) {
@@ -472,11 +474,6 @@ public class ScrollPicker extends LinearLayout {
             this.listItemType = ListItemType.STRING;
     }
 
-    // for testing
-    int getListScrollY() {
-        return scrollView.getScrollY();
-    }
-
     protected int getIndexOfValue( int value ) {
         return getIntItems().indexOf( value );
     }
@@ -486,6 +483,8 @@ public class ScrollPicker extends LinearLayout {
     }
 
     protected void initValues( AttributeSet attrs ) {
+        TypedArray attributesArray = context.obtainStyledAttributes( attrs, R.styleable.ScrollPicker );
+
         TEXT_COLOR_DISABLED = ContextCompat.getColor( context, R.color.textColorDisabled );
         TEXT_COLOR_DEFAULT = ContextCompat.getColor( context, R.color.textColorDefault );
         SELECTED_TEXT_COLOR_DEFAULT = ContextCompat.getColor( context, R.color.textColorDefault );
@@ -494,13 +493,14 @@ public class ScrollPicker extends LinearLayout {
         isEnabled = true;
         selectorPaint = new Paint();
 
-        TypedArray attributesArray = context.obtainStyledAttributes( attrs, R.styleable.ScrollPicker );
 
         setSelectorLineWidth( attributesArray.getFloat( R.styleable.ScrollPicker_selectorLineWidth, SELECTOR_STROKE_WIDTH ) );
         setSelectorColor( attributesArray.getColor( R.styleable.ScrollPicker_selectorColor, SELECTOR_COLOR_DEFAULT ) );
         setSelectorStyle( SelectorStyle.values()[ attributesArray.getInt( R.styleable.ScrollPicker_selectorStyle, SELECTOR_STYLE_DEFAULT_INDEX ) ] );
         setShownItemCount( attributesArray.getInt( R.styleable.ScrollPicker_shownItemCount, SHOWN_ITEM_COUNT_DEFAULT ) );
 
+//        float textSizeIfNotSpecifiedExplicitly = textStyleTypedArray.getFloat( 1, TEXT_SIZE_DEFAULT );
+//        setTextSize( attributesArray.getFloat( R.styleable.ScrollPicker_textSize, textSizeIfNotSpecifiedExplicitly ) );
         setTextSize( attributesArray.getFloat( R.styleable.ScrollPicker_textSize, TEXT_SIZE_DEFAULT ) );
         if( attributesArray.hasValue( R.styleable.ScrollPicker_selectedTextSize ) ) {
             setSelectedTextSize( attributesArray.getFloat( R.styleable.ScrollPicker_selectedTextSize, SELECTED_TEXT_SIZE_DEFAULT ) );
@@ -511,6 +511,7 @@ public class ScrollPicker extends LinearLayout {
         setTextColor( attributesArray.getInt( R.styleable.ScrollPicker_textColor, TEXT_COLOR_DEFAULT ) );
         setEnabled( attributesArray.getBoolean( R.styleable.ScrollPicker_isEnabled, true ) );
         setTextBold( attributesArray.getBoolean( R.styleable.ScrollPicker_isTextBold, false ) );
+        font = attributesArray.getResourceId( R.styleable.ScrollPicker_font, 0 );
 
         attributesArray.recycle();
     }
@@ -657,7 +658,7 @@ public class ScrollPicker extends LinearLayout {
     protected int calculateViewHeight( boolean isBottom, int scrollViewHeight ) {
         int heightHalf = ( getHeight() - scrollViewHeight ) / 2;
         int heightMod = ( getHeight() - scrollViewHeight ) % 2;
-        return heightHalf + (isBottom ? heightMod : 0 );
+        return heightHalf + ( isBottom ? heightMod : 0 );
     }
 
     protected View getSpace( int height ) {
@@ -687,6 +688,7 @@ public class ScrollPicker extends LinearLayout {
     }
 
     protected void setTextViewStyle( int itemIndex, TextView textView ) {
+        textView.setTextAppearance( context, font );
         if( itemIndex == selectedIndex ) {
             textView.setTextSize( TypedValue.COMPLEX_UNIT_SP, hasSelectedTextSizeBeenSetByUser ? selectedTextSize : textSize );
             int textColorForSelectedItem;
@@ -731,19 +733,8 @@ public class ScrollPicker extends LinearLayout {
     }
 
     protected void selectItem( int newIndex ) {
-        if(  selectedIndex != newIndex )
+        if( selectedIndex != newIndex )
             selectNewItem( newIndex );
-    }
-
-    private void selectNewItem( int newIndex ) {
-        selectedIndex = newIndex;
-        setContentDescription( items.get( selectedIndex ).toString() );
-        if( !isExternalValueChange ) {
-            for( OnValueChangeListener l : onValueChangeListeners )
-                sendOnValueChanged( newIndex, l );
-        }
-        scrollYTo.set( newIndex * cellHeight );
-        initScrollView();
     }
 
     // if we use the Int implementation, send the Value itself, otherwise send the index of the selected String
@@ -754,18 +745,33 @@ public class ScrollPicker extends LinearLayout {
     protected int getValueForIndex( int index ) {
         if( indexIsValid( index ) )
             return listItemType == ListItemType.STRING ?
-                index :
-                getIntItems().get( index );
+                    index :
+                    getIntItems().get( index );
         else
             return 0;
     }
 
-    private boolean indexIsValid( int index ) {
+    protected ArrayList< Integer > getIntItems() {
+        return (ArrayList< Integer >)items;
+    }
+
+    protected void selectNewItem( int newIndex ) {
+        selectedIndex = newIndex;
+        setContentDescription( items.get( selectedIndex ).toString() );
+        if( !isExternalValueChange )
+            for( OnValueChangeListener l : onValueChangeListeners )
+                sendOnValueChanged( newIndex, l );
+        scrollYTo.set( newIndex * cellHeight );
+        initScrollView();
+    }
+
+    protected boolean indexIsValid( int index ) {
         return index >= 0 && index < items.size();
     }
 
-    protected ArrayList< Integer > getIntItems() {
-        return (ArrayList< Integer >)items;
+    // for testing
+    int getListScrollY() {
+        return scrollView.getScrollY();
     }
 
     public enum ListItemType {
@@ -773,6 +779,7 @@ public class ScrollPicker extends LinearLayout {
     }
 
     public interface OnValueChangeListener {
+
         void onValueChange( int newValue ); // if we use the Int implementation, send the value itself, otherwise send the index of the selected String
     }
 

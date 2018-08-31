@@ -17,5 +17,6 @@
         <attr name="isEnabled" format="boolean"/>
         <attr name="isTextBold" format="boolean"/>
         <attr name="selectorLineWidth" format="float"/>
+        <attr name="font" format="reference"/>
     </declare-styleable>
 </resources>
