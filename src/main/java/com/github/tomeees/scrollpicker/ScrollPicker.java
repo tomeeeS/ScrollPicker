@@ -23,7 +23,8 @@ import android.view.ViewGroup;
 import android.view.ViewTreeObserver;
 import android.view.animation.LinearInterpolator;
 import android.widget.LinearLayout;
-import android.widget.TextView;
+
+import com.lb.auto_fit_textview.AutoResizeTextView;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -353,6 +354,7 @@ public class ScrollPicker extends LinearLayout {
             }
             setSelectorRect();
             invalidate();
+            initScrollView();
         }
     }
 
@@ -678,15 +680,16 @@ public class ScrollPicker extends LinearLayout {
     }
 
     @NonNull
-    protected TextView getTextView( int itemIndex ) {
-        TextView textView = new TextView( getContext() );
+    protected AutoResizeTextView getTextView( int itemIndex ) {
+        AutoResizeTextView textView = new AutoResizeTextView( getContext() );
         setTextViewLayoutParams( textView );
         setTextViewStyle( itemIndex, textView );
         setText( itemIndex, textView );
+        textView.invalidate();
         return textView;
     }
 
-    protected void setTextViewStyle( int itemIndex, TextView textView ) {
+    protected void setTextViewStyle( int itemIndex, AutoResizeTextView textView ) {
         if( itemIndex == selectedIndex ) {
             textView.setTextSize( TypedValue.COMPLEX_UNIT_SP, hasSelectedTextSizeBeenSetByUser ? selectedTextSize : textSize );
             int textColorForSelectedItem;
@@ -703,17 +706,19 @@ public class ScrollPicker extends LinearLayout {
             textView.setTypeface( textView.getTypeface(), Typeface.BOLD );
     }
 
-    protected void setTextViewLayoutParams( TextView textView ) {
+    protected void setTextViewLayoutParams( AutoResizeTextView textView ) {
         textView.setLayoutParams( new LayoutParams( LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT ) );
         int verticalAlignmentCorrection = (int) -( textView.getTextSize() / 8 );
-        textView.setPadding( 0, verticalAlignmentCorrection, 0, 0 ); // text is not centered for some reason and it needs correction
+        // verticalAlignmentCorrection: text is not centered for some reason and it needs correction
+        int horizontalPadding = selectorRectHorizontalInset + (int)selectorLineWidth;
+        textView.setPadding( horizontalPadding, verticalAlignmentCorrection, horizontalPadding, 0 );
         MarginLayoutParams p = (MarginLayoutParams)textView.getLayoutParams();
         p.height = cellHeight;
         textView.setLayoutParams( p );
         textView.setGravity( CENTER );
     }
 
-    protected void setText( int itemIndex, TextView textView ) {
+    protected void setText( int itemIndex, AutoResizeTextView textView ) {
         switch( listItemType ) {
             case INT:
                 textView.setText( "" + getIntItems().get( itemIndex ) );
