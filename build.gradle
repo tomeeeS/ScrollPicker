@@ -4,13 +4,11 @@ buildscript {
     }
     dependencies {
         classpath 'com.github.dcendents:android-maven-gradle-plugin:2.1'
-        classpath 'com.jfrog.bintray.gradle:gradle-bintray-plugin:1.7.3'
     }
 }
 
 apply plugin: 'com.android.library'
 apply plugin: 'com.github.dcendents.android-maven'
-apply plugin: 'com.jfrog.bintray'
 apply from: './scripts/maven-push.gradle'
 
 android {
@@ -39,7 +37,7 @@ android {
 dependencies {
     implementation fileTree(include: ['*.jar'], dir: 'libs')
     implementation 'com.android.support:appcompat-v7:28.0.0-rc01'
-    compile 'com.github.AndroidDeveloperLB:AutoFitTextView:4'
+    implementation 'com.github.AndroidDeveloperLB:AutoFitTextView:4'
 }
 repositories {
     jcenter()
