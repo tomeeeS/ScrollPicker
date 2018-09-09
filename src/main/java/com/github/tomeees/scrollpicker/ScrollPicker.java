@@ -81,11 +81,11 @@ public class ScrollPicker extends LinearLayout {
     protected static final boolean IS_SET_NEXT_OR_PREVIOUS_ITEM_ENABLED = true;
     protected static final int SCROLL_STOP_CHECK_INTERVAL_MS = 20;
     protected static final int TEXT_SIZE_DEFAULT = 16;
-    public static final float SELECTED_TEXT_SIZE_DEFAULT = TEXT_SIZE_DEFAULT;
+    protected static final float SELECTED_TEXT_SIZE_DEFAULT = TEXT_SIZE_DEFAULT;
     protected static final int SCROLL_INTO_PLACE_DURATION_MS_DEFAULT = 120;
     protected static final int SELECTOR_STYLE_DEFAULT_INDEX = 2; // corresponds to the classic style
-    public static final int SELECTOR_STROKE_WIDTH = 4;
-    public static final int SELECTED_INDEX_DEFAULT = 0;
+    protected static final int SELECTOR_STROKE_WIDTH = 4;
+    protected static final int SELECTED_INDEX_DEFAULT = 0;
     protected static int SELECTOR_COLOR_DEFAULT;
     protected static int TEXT_COLOR_DISABLED;
     protected static int TEXT_COLOR_DEFAULT;
@@ -773,7 +773,7 @@ public class ScrollPicker extends LinearLayout {
         return (ArrayList< Integer >)items;
     }
 
-    public enum ListItemType {
+    enum ListItemType {
         INT, STRING
     }
 
