@@ -14,6 +14,7 @@ import android.support.annotation.NonNull;
 import android.support.v4.content.ContextCompat;
 import android.support.v4.widget.NestedScrollView;
 import android.util.AttributeSet;
+import android.util.Log;
 import android.util.TypedValue;
 import android.view.LayoutInflater;
 import android.view.MotionEvent;
@@ -157,6 +158,7 @@ public class ScrollPicker extends LinearLayout {
 
     /**
      * Sets the selected item. Can be data-bound (2-way).
+     * It's the caller's responsibility to set a valid value.
      *
      * @param value If the list we set was such that its items are of String, then the value corresponds to the indiex of the selected item in the list,
      *              while in case of Integers it is the item's int value.
@@ -272,11 +274,11 @@ public class ScrollPicker extends LinearLayout {
     }
 
     /**
-     * Sets the list whose items this view displays. Can be data-bound. //todo
+     * Sets the list whose items this view displays. Can be data-bound.
      *
-     * @param items A collection whose template type must be either String or Integer. Must be non-empty.
-     *              In case of Collection&lt;String&gt the value that you can set to this view with {@link #setValue(int)} will correspond to the index of the selected item in this list,
-     *              while in case of Collection&lt;Integer&gt it will be the item's int value.
+     * @param items Must be non-empty.
+     *              In case of Collection&lt;String&gt the value that you can set to this view with {@link #setValue(int)} will correspond to the
+     *              index of the selected item in this list, otherwise it will be the item's int value.
      */
     public void setItems( Collection items ) {
         ArrayList arrayList = new ArrayList( items );
@@ -289,6 +291,19 @@ public class ScrollPicker extends LinearLayout {
             setValue( storedValue );
             storedValue = null;
         }
+    }
+
+    /**
+     * Sets a range of integers as the list whose items this view displays.
+     *
+     * @param fromInclusive  The start point of the range.
+     * @param toInclusive    The end point of the range. Must be greater than fromInclusive. 
+     */
+    public void setItemsIntRange( int fromInclusive, int toInclusive ) {
+        ArrayList< Integer > list = new ArrayList<>( toInclusive - fromInclusive + 1 );
+        for( int i = fromInclusive; i < toInclusive + 1; i++ )
+            list.add( i );
+        setItems( list );
     }
 
     /**
@@ -480,7 +495,12 @@ public class ScrollPicker extends LinearLayout {
     }
 
     protected int getIndexOfValue( int value ) {
-        return getIntItems().indexOf( value );
+        ArrayList< Integer > intItems = getIntItems();
+        if( intItems.contains( value ) )
+            return intItems.indexOf( value );
+        Log.e( "ScrollPicker",
+                "The value you tried to set is not in items. Need to set the outer value to synchronize with the one displayed." );
+        return 0; // set the value to the first element
     }
 
     protected void restartScrollStopCheck() {
