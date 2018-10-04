@@ -4,7 +4,7 @@ import android.databinding.BindingAdapter;
 import android.databinding.InverseBindingAdapter;
 import android.databinding.InverseBindingListener;
 
-// binding to the 'value' of the ScrollPicker, which is the selected item's index in case of ListItemType.STRING, and
+// binding to the 'value' of the ScrollPicker, which is the selected item's index in case of ListItemType.OTHER, and
 // the selected int item in case of ListItemType.INT
 public class ScrollPickerValueBinding {
 

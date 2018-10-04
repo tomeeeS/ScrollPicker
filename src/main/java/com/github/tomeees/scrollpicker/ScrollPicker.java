@@ -14,7 +14,6 @@ import android.support.annotation.NonNull;
 import android.support.v4.content.ContextCompat;
 import android.support.v4.widget.NestedScrollView;
 import android.util.AttributeSet;
-import android.util.Log;
 import android.util.TypedValue;
 import android.view.LayoutInflater;
 import android.view.MotionEvent;
@@ -46,12 +45,9 @@ import static android.view.Gravity.CENTER;
  * selector - The visual indication about the currently selected item at the middle of the view
  *
  * Notes:
- * - The items can't be edited like in NumberPicker.
- * - When you set a String list for items, the value is always just the index and not a custom interval of numbers set with setMin, setMax as in NumberPicker,
- *      but I don't think that's a real way of dealing with that obscure use case anyway, it's not robust for one, as you have to make sure that
- *      "The length of the displayed values array must be equal to the range of selectable numbers which is equal to getMaxValue() - getMinValue() + 1"
- *      why would you need to worry about making 3 calls right instead of just dealing with an offset on the indices at one place in the logic?
- * *
+ * - You can't have the items displayed in a loop (like as with wrapSelectorWheel in NumberPicker).
+ * - The user can't edit the items from the UI.
+ *
  *
  * Licence: Apache-2.0 (do with it whatever you please)
  *
@@ -93,10 +89,10 @@ public class ScrollPicker extends LinearLayout {
     protected int SELECTED_TEXT_COLOR_DEFAULT;
     protected final float TOUCH_SLOP = ViewConfiguration.get( getContext() ).getScaledTouchSlop();
 
-    protected ArrayList items; // the String or Integer items that we display
+    protected ArrayList items; // the items that we display
     protected Rect selectPreviousItemRect; // the touch area rectangle for the select previous item functionality
     protected Rect selectNextItemRect; // the touch area rectangle for the select next item functionality
-    protected ListItemType listItemType; // String or Int
+    protected ListItemType listItemType;
     protected NestedScrollView scrollView; // the parent view in which we have the elements in a vertical LinearLayout. Good for scrolling.
     protected Context context;
     int shownItemCount = SHOWN_ITEM_COUNT_DEFAULT; // how many items can be shown at a time
@@ -149,8 +145,8 @@ public class ScrollPicker extends LinearLayout {
     /**
      * Gets the selected item. Can be data-bound (2-way).
      *
-     * @return If the list we set was such that its items are of String, then the returned value corresponds to the index of the selected item in the list,
-     *         while in case of Integers it is the selected item's int value.
+     * @return If the list we set was such that its items are Integers, then the returned value corresponds to the item's int value,
+     *         otherwise it is the index of the selected item in the list.
      */
     public int getValue() {
         return getValueForIndex( selectedIndex );
@@ -158,10 +154,10 @@ public class ScrollPicker extends LinearLayout {
 
     /**
      * Sets the selected item. Can be data-bound (2-way).
-     * It's the caller's responsibility to set a valid value.
+     * Throws {@link WrongValueException} if an invalid value is being set.
      *
-     * @param value If the list we set was such that its items are of String, then the value corresponds to the indiex of the selected item in the list,
-     *              while in case of Integers it is the item's int value.
+     * @param value If the list we set was such that its items are Integers, then the value corresponds to the item's int value,
+     *              otherwise it is the index of the selected item in the list.
      */
     public void setValue( int value ) {
         if( isListInited ) {
@@ -277,8 +273,8 @@ public class ScrollPicker extends LinearLayout {
      * Sets the list whose items this view displays. Can be data-bound.
      *
      * @param items Must be non-empty.
-     *              In case of Collection&lt;String&gt the value that you can set to this view with {@link #setValue(int)} will correspond to the
-     *              index of the selected item in this list, otherwise it will be the item's int value.
+     *              If the collection is such that its items are Integers, then the value that you can set to this view with {@link #setValue(int)}
+     *              corresponds to the item's int value, otherwise it is the index of the selected item in the list.
      */
     public void setItems( Collection items ) {
         ArrayList arrayList = new ArrayList( items );
@@ -476,7 +472,7 @@ public class ScrollPicker extends LinearLayout {
             case INT:
                 selectItem( getIndexOfValue( index ) );
                 break;
-            case STRING:
+            case OTHER:
                 selectItem( index );
                 break;
         }
@@ -486,7 +482,7 @@ public class ScrollPicker extends LinearLayout {
         if( items.get( 0 ) instanceof Integer )
             this.listItemType = ListItemType.INT;
         else
-            this.listItemType = ListItemType.STRING;
+            this.listItemType = ListItemType.OTHER;
     }
 
     // for testing
@@ -498,9 +494,7 @@ public class ScrollPicker extends LinearLayout {
         ArrayList< Integer > intItems = getIntItems();
         if( intItems.contains( value ) )
             return intItems.indexOf( value );
-        Log.e( "ScrollPicker",
-                "The value you tried to set is not in items. Need to set the outer value to synchronize with the one displayed." );
-        return 0; // set the value to the first element
+        throw new WrongValueException( String.format( "Tried to set value %s which wasn't in the items.", value ) );
     }
 
     protected void restartScrollStopCheck() {
@@ -743,7 +737,7 @@ public class ScrollPicker extends LinearLayout {
             case INT:
                 textView.setText( "" + getIntItems().get( itemIndex ) );
                 break;
-            case STRING:
+            case OTHER:
                 textView.setText( items.get( itemIndex ).toString() );
                 break;
         }
@@ -771,22 +765,21 @@ public class ScrollPicker extends LinearLayout {
         initScrollView();
     }
 
-    // if we use the Int implementation, send the Value itself, otherwise send the index of the selected String
+    // if we use the Int implementation, send the Value itself, otherwise send the index of the selected value
     protected void sendOnValueChanged( int newIndex, OnValueChangeListener l ) {
         l.onValueChange( getValueForIndex( newIndex ) );
     }
 
     protected int getValueForIndex( int index ) {
-        if( indexIsValid( index ) )
-            return listItemType == ListItemType.STRING ?
-                index :
-                getIntItems().get( index );
-        else
-            return 0;
+        validateIndex( index );
+        return listItemType == ListItemType.OTHER ?
+            index :
+            getIntItems().get( index );
     }
 
-    private boolean indexIsValid( int index ) {
-        return index >= 0 && index < items.size();
+    private void validateIndex( int index ) {
+        if( index < 0 || index >= items.size() )
+            throw new WrongValueException( String.format( "Tried to set invalid index %s.", index ) );
     }
 
     protected ArrayList< Integer > getIntItems() {
@@ -794,11 +787,11 @@ public class ScrollPicker extends LinearLayout {
     }
 
     enum ListItemType {
-        INT, STRING
+        INT, OTHER
     }
 
     public interface OnValueChangeListener {
-        void onValueChange( int newValue ); // if we use the Int implementation, send the value itself, otherwise send the index of the selected String
+        void onValueChange( int newValue ); // if we use the Int implementation, send the value itself, otherwise send the index of the selected value
     }
 
 }
