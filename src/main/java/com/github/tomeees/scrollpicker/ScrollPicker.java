@@ -225,7 +225,7 @@ public class ScrollPicker extends LinearLayout {
     /**
      * Sets the selector's color. The selector is the visual indication about the currently selected item at the middle of the view.
      *
-     * @param selectorColor Standard android int representation of a color.
+     * @param selectorColor Resolved color.
      */
     public void setSelectorColor( int selectorColor ) {
         selectorPaint.setColor( selectorColor );
@@ -314,7 +314,7 @@ public class ScrollPicker extends LinearLayout {
     /**
      * Sets the text color of the not selected items in the list, sets it for the selected one also if that hasn't been explicitly set.
      *
-     * @param textColor Standard android int representation of a color.
+     * @param textColor Resolved color.
      */
     public void setTextColor( int textColor ) {
         enabledTextColor = textColor;
@@ -324,7 +324,7 @@ public class ScrollPicker extends LinearLayout {
     /**
      * Sets the text color of the selected item.
      *
-     * @param selectedTextColor Standard android int representation of a color.
+     * @param selectedTextColor Resolved color.
      */
     public void setSelectedTextColor( int selectedTextColor ) {
         hasSelectedTextColorBeenSetByUser = true;

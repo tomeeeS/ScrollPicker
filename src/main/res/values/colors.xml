@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <color name="textColorDisabled">#93969b</color>
-    <color name="selectorColorDefault">#116b2b66</color>
+    <color name="selectorColorDefault">#0152bc</color>
     <color name="textColorDefault">#000</color>
 </resources>
