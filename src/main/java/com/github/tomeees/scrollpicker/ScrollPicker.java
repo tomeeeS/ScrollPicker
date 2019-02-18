@@ -282,11 +282,13 @@ public class ScrollPicker extends LinearLayout {
         this.items = arrayList;
         isListInited = true;
         initScrollView();
-        selectNewItem( SELECTED_INDEX_DEFAULT );
+        isExternalValueChange = true;
         if( storedValue != null ) {  // if we had a value set before, we can set it now that the list was inited
             setValue( storedValue );
             storedValue = null;
-        }
+        } else
+            selectNewItem( SELECTED_INDEX_DEFAULT );
+        isExternalValueChange = false;
     }
 
     /**
