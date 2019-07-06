@@ -16,8 +16,8 @@ android {
     defaultConfig {
         minSdkVersion 11
         targetSdkVersion 28
-        versionCode 1
-        versionName "0.1"
+        versionName '1.7.3'
+        versionCode 40
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
 
@@ -29,7 +29,7 @@ android {
 
 dependencies {
     implementation fileTree(include: ['*.jar'], dir: 'libs')
-    implementation 'androidx.appcompat:appcompat:1.1.0-alpha02'
+    implementation 'androidx.appcompat:appcompat:1.1.0-rc01'
     implementation 'com.github.AndroidDeveloperLB:AutoFitTextView:4'
 }
 repositories {

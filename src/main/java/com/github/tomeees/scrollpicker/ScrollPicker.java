@@ -360,8 +360,8 @@ public class ScrollPicker extends LinearLayout {
                     break;
                 case CLASSIC:
                 default:
+                    selectorRectHorizontalInset = 0;
                     selectorPaint.setStyle( Paint.Style.STROKE );
-                    selectorRectHorizontalInset = -(int)selectorLineWidth / 2;
                     break;
 //                case CLASSIC_SHORT: // same as classic but with only the middle third of width?
 //                    break;
@@ -465,9 +465,18 @@ public class ScrollPicker extends LinearLayout {
     @Override
     protected void dispatchDraw( Canvas canvas ) {
         // whatever is before the super call will be drawn to the background, so now the selector is drawn behind the list, so the selected item's text is visible too
-        if( selectorLineWidth > 0 )
-            canvas.drawRect( selectorRect, selectorPaint );
+        drawSelector( canvas );
         super.dispatchDraw( canvas );
+    }
+
+    private void drawSelector( Canvas canvas ) {
+        if( selectorLineWidth > 0 )
+            if( selectorStyle == SelectorStyle.CLASSIC ) {
+                canvas.drawLine( selectorRect.left, selectorRect.top, selectorRect.right, selectorRect.top, selectorPaint );
+                canvas.drawLine( selectorRect.left, selectorRect.bottom, selectorRect.right, selectorRect.bottom, selectorPaint );
+            }
+            else
+                canvas.drawRect( selectorRect, selectorPaint );
     }
 
     protected void selectItemFromValue( int index ) {
