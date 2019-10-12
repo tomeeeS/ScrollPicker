@@ -18,8 +18,6 @@ import android.view.ViewTreeObserver;
 import android.view.animation.LinearInterpolator;
 import android.widget.LinearLayout;
 
-import com.lb.auto_fit_textview.AutoResizeTextView;
-
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedList;
@@ -27,8 +25,10 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import androidx.annotation.NonNull;
+import androidx.appcompat.widget.AppCompatTextView;
 import androidx.core.content.ContextCompat;
 import androidx.core.widget.NestedScrollView;
+import androidx.core.widget.TextViewCompat;
 import androidx.databinding.BindingAdapter;
 import androidx.databinding.Observable;
 import androidx.databinding.ObservableField;
@@ -84,6 +84,8 @@ public class ScrollPicker extends LinearLayout {
     protected static final int SELECTOR_STYLE_DEFAULT_INDEX = 2; // corresponds to the classic style
     protected static final int SELECTOR_STROKE_WIDTH = 4;
     protected static final int SELECTED_INDEX_DEFAULT = 0;
+    protected static final int AUTO_SIZE_MIN_TEXT_SIZE = 2;
+    protected static final int AUTO_SIZE_STEP_GRANULARITY = 1;
     protected static int SELECTOR_COLOR_DEFAULT;
     protected static int TEXT_COLOR_DISABLED;
     protected static int TEXT_COLOR_DEFAULT;
@@ -296,7 +298,7 @@ public class ScrollPicker extends LinearLayout {
      * Sets a range of integers as the list whose items this view displays.
      *
      * @param fromInclusive  The start point of the range.
-     * @param toInclusive    The end point of the range. Must be greater than fromInclusive. 
+     * @param toInclusive    The end point of the range. Must be greater than fromInclusive.
      */
     public void setItemsIntRange( int fromInclusive, int toInclusive ) {
         ArrayList< Integer > list = new ArrayList<>( toInclusive - fromInclusive + 1 );
@@ -706,8 +708,8 @@ public class ScrollPicker extends LinearLayout {
     }
 
     @NonNull
-    protected AutoResizeTextView getTextView( int itemIndex ) {
-        AutoResizeTextView textView = new AutoResizeTextView( getContext() );
+    protected AppCompatTextView getTextView( int itemIndex ) {
+        AppCompatTextView textView = new AppCompatTextView( getContext() );
         setTextViewLayoutParams( textView );
         setTextViewStyle( itemIndex, textView );
         setText( itemIndex, textView );
@@ -715,9 +717,10 @@ public class ScrollPicker extends LinearLayout {
         return textView;
     }
 
-    protected void setTextViewStyle( int itemIndex, AutoResizeTextView textView ) {
+    protected void setTextViewStyle( int itemIndex, AppCompatTextView textView ) {
         if( itemIndex == selectedIndex ) {
-            textView.setTextSize( TypedValue.COMPLEX_UNIT_SP, hasSelectedTextSizeBeenSetByUser ? selectedTextSize : textSize );
+            float maxTextSize = hasSelectedTextSizeBeenSetByUser ? selectedTextSize : textSize;
+            setAutosizeTextSize( textView, (int)maxTextSize );
             int textColorForSelectedItem;
             if( isEnabled )
                 textColorForSelectedItem = hasSelectedTextColorBeenSetByUser ? selectedTextColor : enabledTextColor;
@@ -725,14 +728,19 @@ public class ScrollPicker extends LinearLayout {
                 textColorForSelectedItem = TEXT_COLOR_DISABLED;
             textView.setTextColor( textColorForSelectedItem );
         } else {
-            textView.setTextSize( TypedValue.COMPLEX_UNIT_SP, textSize );
+            setAutosizeTextSize( textView, (int)textSize );
             textView.setTextColor( isEnabled ? enabledTextColor : TEXT_COLOR_DISABLED );
         }
         if( isTextBold )
             textView.setTypeface( textView.getTypeface(), Typeface.BOLD );
     }
 
-    protected void setTextViewLayoutParams( AutoResizeTextView textView ) {
+    private void setAutosizeTextSize( AppCompatTextView textView, int maxTextSize ) {
+        TextViewCompat.setAutoSizeTextTypeUniformWithConfiguration(
+            textView, AUTO_SIZE_MIN_TEXT_SIZE, maxTextSize, AUTO_SIZE_STEP_GRANULARITY, TypedValue.COMPLEX_UNIT_SP );
+    }
+
+    protected void setTextViewLayoutParams( AppCompatTextView textView ) {
         textView.setLayoutParams( new LayoutParams( LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT ) );
         int verticalAlignmentCorrection = (int) -( textView.getTextSize() / 8 );
         // verticalAlignmentCorrection: text is not centered for some reason and it needs correction
@@ -744,7 +752,7 @@ public class ScrollPicker extends LinearLayout {
         textView.setGravity( CENTER );
     }
 
-    protected void setText( int itemIndex, AutoResizeTextView textView ) {
+    protected void setText( int itemIndex, AppCompatTextView textView ) {
         switch( listItemType ) {
             case INT:
                 textView.setText( "" + getIntItems().get( itemIndex ) );
@@ -762,11 +770,12 @@ public class ScrollPicker extends LinearLayout {
     }
 
     protected void selectItem( int newIndex ) {
-        if(  selectedIndex != newIndex )
+        if( selectedIndex != newIndex )
             selectNewItem( newIndex );
     }
 
     private void selectNewItem( int newIndex ) {
+        validateIndex( newIndex );
         selectedIndex = newIndex;
         setContentDescription( items.get( selectedIndex ).toString() );
         if( !isExternalValueChange ) {

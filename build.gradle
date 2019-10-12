@@ -29,12 +29,10 @@ android {
 
 dependencies {
     implementation fileTree(include: ['*.jar'], dir: 'libs')
-    implementation 'androidx.appcompat:appcompat:1.1.0-rc01'
-    implementation 'com.github.AndroidDeveloperLB:AutoFitTextView:4'
+    implementation 'androidx.appcompat:appcompat:1.1.0'
 }
 repositories {
     jcenter()
     mavenCentral()
     google()
-    maven { url "https://jitpack.io" }
 }
