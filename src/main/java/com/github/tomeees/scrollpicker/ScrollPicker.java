@@ -18,12 +18,6 @@ import android.view.ViewTreeObserver;
 import android.view.animation.LinearInterpolator;
 import android.widget.LinearLayout;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.concurrent.atomic.AtomicInteger;
-
 import androidx.annotation.NonNull;
 import androidx.appcompat.widget.AppCompatTextView;
 import androidx.core.content.ContextCompat;
@@ -32,6 +26,12 @@ import androidx.core.widget.TextViewCompat;
 import androidx.databinding.BindingAdapter;
 import androidx.databinding.Observable;
 import androidx.databinding.ObservableField;
+
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static android.view.Gravity.CENTER;
 
@@ -96,7 +96,6 @@ public class ScrollPicker extends LinearLayout {
     protected Rect selectPreviousItemRect; // the touch area rectangle for the select previous item functionality
     protected Rect selectNextItemRect; // the touch area rectangle for the select next item functionality
     protected ListItemType listItemType;
-    protected NestedScrollView scrollView; // the parent view in which we have the elements in a vertical LinearLayout. Good for scrolling.
     protected Context context;
     int shownItemCount = SHOWN_ITEM_COUNT_DEFAULT; // how many items can be shown at a time
     protected int spaceCellCount; // how many cells equate to the height of the space before (and after) the text views
@@ -108,7 +107,7 @@ public class ScrollPicker extends LinearLayout {
     protected boolean isExternalValueChange = false;
     protected boolean isOnSizeChangedFinished = false;
     protected boolean isListInited = false;
-    protected int selectedIndex = SELECTED_INDEX_DEFAULT;
+    protected int selectedItemIndex = SELECTED_INDEX_DEFAULT;
     protected Runnable scrollerTask;
     protected int lastScrollY;
     protected AtomicInteger scrollYTo = new AtomicInteger();
@@ -116,9 +115,6 @@ public class ScrollPicker extends LinearLayout {
     protected int enabledTextColor, selectedTextColor;
     protected boolean isEnabled;
     protected Integer storedValue; // was there a value set yet and what was it
-    protected LinearLayout itemsLayout;
-    protected View correctionViewTop; // these are to take up the space which is left when total view height is not divisible by shownItemCount
-    protected View correctionViewBottom;
     protected SelectorStyle selectorStyle;
     protected int selectorRectHorizontalInset; // we always draw a rectangle for the selector, we just set the left and right coordinates for it according to style
     protected float selectedTextSize;
@@ -126,6 +122,13 @@ public class ScrollPicker extends LinearLayout {
     protected boolean hasSelectedTextSizeBeenSetByUser = false;
     private boolean isTextBold;
     private float selectorLineWidth;
+
+    protected NestedScrollView scrollView; // the parent view in which we have the elements in a vertical LinearLayout. Good for scrolling.
+    protected LinearLayout itemsLayout;
+    protected View correctionViewTop; // these are to take up the space which is left when total view height is not divisible by shownItemCount
+    protected View correctionViewBottom;
+    protected List<AppCompatTextView> textViews;
+    protected AppCompatTextView previouslySelectedTextView;
 
     // region public interface
 
@@ -152,7 +155,7 @@ public class ScrollPicker extends LinearLayout {
      *         otherwise it is the index of the selected item in the list.
      */
     public int getValue() {
-        return getValueForIndex( selectedIndex );
+        return getValueForIndex(selectedItemIndex);
     }
 
     /**
@@ -164,11 +167,11 @@ public class ScrollPicker extends LinearLayout {
      */
     public void setValue( int value ) {
         if( isListInited ) {
-            if( value != getValueForIndex( selectedIndex ) ) {
+            if( value != getValueForIndex(selectedItemIndex) ) {
                 isExternalValueChange = true; // external setValue, no need to trigger value changed callback
                 selectItemFromValue( value );
-                if( isInited() ) {
-                    scrollYTo( selectedIndex * cellHeight );
+                if( isInitReady() ) {
+                    scrollYTo( selectedItemIndex * cellHeight );
                     invalidate();
                 }
                 isExternalValueChange = false;
@@ -211,8 +214,7 @@ public class ScrollPicker extends LinearLayout {
     public void setEnabled( boolean isEnabled ) {
         if( this.isEnabled != isEnabled ) {
             this.isEnabled = isEnabled;
-            if( isInited() )
-                initScrollView();
+            updateTextViewsStyle();
         }
     }
 
@@ -232,7 +234,7 @@ public class ScrollPicker extends LinearLayout {
      */
     public void setSelectorColor( int selectorColor ) {
         selectorPaint.setColor( selectorColor );
-        initScrollView();
+        invalidate();
     }
 
     /**
@@ -247,7 +249,7 @@ public class ScrollPicker extends LinearLayout {
      */
     public void setTextSize( float textSize ) {
         this.textSize = textSize;
-        initScrollView();
+        updateTextViewsStyle();
     }
 
     /**
@@ -256,7 +258,7 @@ public class ScrollPicker extends LinearLayout {
     public void setSelectedTextSize( float selectedTextSize ) {
         hasSelectedTextSizeBeenSetByUser = true;
         this.selectedTextSize = selectedTextSize;
-        initScrollView();
+        updateTextViewsStyle();
     }
 
     /**
@@ -323,7 +325,7 @@ public class ScrollPicker extends LinearLayout {
      */
     public void setTextColor( int textColor ) {
         enabledTextColor = textColor;
-        initScrollView();
+        updateTextViewsStyle();
     }
 
     /**
@@ -334,7 +336,7 @@ public class ScrollPicker extends LinearLayout {
     public void setSelectedTextColor( int selectedTextColor ) {
         hasSelectedTextColorBeenSetByUser = true;
         this.selectedTextColor = selectedTextColor;
-        initScrollView();
+        updateTextViewsStyle();
     }
 
     /**
@@ -370,7 +372,6 @@ public class ScrollPicker extends LinearLayout {
             }
             setSelectorRect();
             invalidate();
-            initScrollView();
         }
     }
 
@@ -381,14 +382,14 @@ public class ScrollPicker extends LinearLayout {
     public void setSelectorLineWidth( float selectorLineWidth ) {
         this.selectorLineWidth = selectorLineWidth;
         selectorPaint.setStrokeWidth( selectorLineWidth );
-        initScrollView();
+        invalidate();
     }
 
     /**
      * Selects the next item if the currently selected isn't the last one.
      */
     public void selectNextItem() {
-        if( selectedIndex < items.size() - 1 ) {
+        if( selectedItemIndex < items.size() - 1 ) {
             scrollYBy( cellHeight );
         }
     }
@@ -397,7 +398,7 @@ public class ScrollPicker extends LinearLayout {
      * Selects the previous item if the currently selected isn't the first one.
      */
     public void selectPreviousItem() {
-        if( selectedIndex > 0 ) {
+        if( selectedItemIndex > 0 ) {
             scrollYBy( -cellHeight );
         }
     }
@@ -469,6 +470,15 @@ public class ScrollPicker extends LinearLayout {
         // whatever is before the super call will be drawn to the background, so now the selector is drawn behind the list, so the selected item's text is visible too
         drawSelector( canvas );
         super.dispatchDraw( canvas );
+    }
+
+    private void updateTextViewsStyle() {
+        if( isInitReady() )
+            for( int i = 0; i < items.size(); ++i ) {
+                AppCompatTextView textView = textViews.get( i );
+                setTextViewStyle( i, textView );
+                textView.invalidate();
+            }
     }
 
     private void drawSelector( Canvas canvas ) {
@@ -648,35 +658,52 @@ public class ScrollPicker extends LinearLayout {
     }
 
     protected void initScrollView() {
-        if( isInited() ) {
+        if( isInitReady()) {
             scrollView.removeAllViews();
             int scrollViewHeight = cellHeight * shownItemCount;
             setViewHeight( scrollView, scrollViewHeight );
             setCorrectionViewsHeights( scrollViewHeight );
-            itemsLayout = new LinearLayout( scrollView.getContext() );
-            itemsLayout.setOrientation( LinearLayout.VERTICAL );
 
-            int spaceHeight = cellHeight * spaceCellCount;
-            itemsLayout.addView( getSpace( spaceHeight ) );
-            for( int i = 0; i < items.size(); ++i )
-                itemsLayout.addView( getTextView( i ) );
-            if( shownItemCount % 2 == 0 )
-                spaceHeight -= cellHeight;
-            itemsLayout.addView( getSpace( spaceHeight ) );
+            initItemsLayout();
+            fillItemsLayout();
+            addInitialValueScroll();
 
-            scrollView.addView( itemsLayout );
-            itemsLayout.getViewTreeObserver().addOnPreDrawListener( new ViewTreeObserver.OnPreDrawListener() {
-                public boolean onPreDraw() { // sets the position to the selected item without animation
-                    scrollView.getViewTreeObserver().removeOnPreDrawListener( this );
-                    int scrollYTo = selectedIndex * cellHeight;
-                    scrollView.scrollTo( 0, scrollYTo );
-                    ScrollPicker.this.scrollYTo.set( scrollYTo );
-                    return false;
-                }
-            } );
             scrollView.invalidate();
             scrollView.requestLayout();
         }
+    }
+
+    private void addInitialValueScroll() {
+        itemsLayout.getViewTreeObserver().addOnPreDrawListener( new ViewTreeObserver.OnPreDrawListener() {
+            public boolean onPreDraw() { // sets the position to the selected item without animation
+                scrollView.getViewTreeObserver().removeOnPreDrawListener( this );
+                int scrollYTo = selectedItemIndex * cellHeight;
+                scrollView.scrollTo( 0, scrollYTo );
+                ScrollPicker.this.scrollYTo.set( scrollYTo );
+                return false;
+            }
+        } );
+    }
+
+    private void fillItemsLayout() {
+        textViews = new ArrayList<>(items.size());
+        int spaceHeight = cellHeight * spaceCellCount;
+        itemsLayout.addView( getSpace( spaceHeight ) );
+        for( int i = 0; i < items.size(); ++i ) {
+            AppCompatTextView textView = getTextView(i);
+            itemsLayout.addView(textView);
+            textViews.add(textView);
+        }
+        if( shownItemCount % 2 == 0 )
+            spaceHeight -= cellHeight;
+        itemsLayout.addView( getSpace( spaceHeight ) );
+
+        scrollView.addView( itemsLayout );
+    }
+
+    private void initItemsLayout() {
+        itemsLayout = new LinearLayout( scrollView.getContext() );
+        itemsLayout.setOrientation( LinearLayout.VERTICAL );
     }
 
     protected void setCorrectionViewsHeights( int scrollViewHeight ) {
@@ -687,7 +714,7 @@ public class ScrollPicker extends LinearLayout {
     protected int calculateViewHeight( boolean isBottom, int scrollViewHeight ) {
         int heightHalf = ( getHeight() - scrollViewHeight ) / 2;
         int heightMod = ( getHeight() - scrollViewHeight ) % 2;
-        return heightHalf + (isBottom ? heightMod : 0 );
+        return heightHalf + (isBottom ? heightMod : 0);
     }
 
     protected View getSpace( int height ) {
@@ -703,7 +730,7 @@ public class ScrollPicker extends LinearLayout {
         space.setLayoutParams( p );
     }
 
-    protected boolean isInited() {
+    protected boolean isInitReady() {
         return isOnSizeChangedFinished && isListInited;
     }
 
@@ -718,7 +745,7 @@ public class ScrollPicker extends LinearLayout {
     }
 
     protected void setTextViewStyle( int itemIndex, AppCompatTextView textView ) {
-        if( itemIndex == selectedIndex ) {
+        if( itemIndex == selectedItemIndex) {
             float maxTextSize = hasSelectedTextSizeBeenSetByUser ? selectedTextSize : textSize;
             setAutosizeTextSize( textView, (int)maxTextSize );
             int textColorForSelectedItem;
@@ -770,20 +797,20 @@ public class ScrollPicker extends LinearLayout {
     }
 
     protected void selectItem( int newIndex ) {
-        if( selectedIndex != newIndex )
+        if( selectedItemIndex != newIndex )
             selectNewItem( newIndex );
     }
 
     private void selectNewItem( int newIndex ) {
         validateIndex( newIndex );
-        selectedIndex = newIndex;
-        setContentDescription( items.get( selectedIndex ).toString() );
+        selectedItemIndex = newIndex;
+        setContentDescription( items.get(selectedItemIndex).toString() );
         if( !isExternalValueChange ) {
             for( OnValueChangeListener l : onValueChangeListeners )
                 sendOnValueChanged( newIndex, l );
         }
         scrollYTo.set( newIndex * cellHeight );
-        initScrollView();
+        updateTextViewsStyle();
     }
 
     // if we use the Int implementation, send the Value itself, otherwise send the index of the selected value
