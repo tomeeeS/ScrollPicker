@@ -106,7 +106,7 @@ public class ScrollPicker extends LinearLayout {
     protected float mStartY;
     protected boolean isExternalValueChange = false;
     protected boolean isOnSizeChangedFinished = false;
-    protected boolean isListInited = false;
+    protected boolean areItemsSet = false;
     protected int selectedItemIndex = SELECTED_INDEX_DEFAULT;
     protected Runnable scrollerTask;
     protected int lastScrollY;
@@ -129,6 +129,7 @@ public class ScrollPicker extends LinearLayout {
     protected View correctionViewBottom;
     protected List<AppCompatTextView> textViews;
     protected AppCompatTextView previouslySelectedTextView;
+    private boolean isInited = false;
 
     // region public interface
 
@@ -166,7 +167,7 @@ public class ScrollPicker extends LinearLayout {
      *              otherwise it is the index of the selected item in the list.
      */
     public void setValue( int value ) {
-        if( isListInited ) {
+        if(isInited) {
             if( value != getValueForIndex(selectedItemIndex) ) {
                 isExternalValueChange = true; // external setValue, no need to trigger value changed callback
                 selectItemFromValue( value );
@@ -283,10 +284,14 @@ public class ScrollPicker extends LinearLayout {
      */
     public void setItems( Collection items ) {
         ArrayList arrayList = new ArrayList( items );
-        setItemsItemType( arrayList );
+        setItemType( arrayList );
         this.items = arrayList;
-        isListInited = true;
+        areItemsSet = true;
         initScrollView();
+        setValueIfInited();
+    }
+
+    protected void setValueIfInited() {
         isExternalValueChange = true;
         if( storedValue != null ) {  // if we had a value set before, we can set it now that the list was inited
             setValue( storedValue );
@@ -473,7 +478,7 @@ public class ScrollPicker extends LinearLayout {
     }
 
     private void updateTextViewsStyle() {
-        if( isInitReady() )
+        if( isInited )
             for( int i = 0; i < items.size(); ++i ) {
                 AppCompatTextView textView = textViews.get( i );
                 setTextViewStyle( i, textView );
@@ -502,7 +507,7 @@ public class ScrollPicker extends LinearLayout {
         }
     }
 
-    protected void setItemsItemType( ArrayList items ) {
+    protected void setItemType(ArrayList items ) {
         if( items.get( 0 ) instanceof Integer )
             this.listItemType = ListItemType.INT;
         else
@@ -658,7 +663,7 @@ public class ScrollPicker extends LinearLayout {
     }
 
     protected void initScrollView() {
-        if( isInitReady()) {
+        if( isInitReady() ) {
             scrollView.removeAllViews();
             int scrollViewHeight = cellHeight * shownItemCount;
             setViewHeight( scrollView, scrollViewHeight );
@@ -668,8 +673,12 @@ public class ScrollPicker extends LinearLayout {
             fillItemsLayout();
             addInitialValueScroll();
 
+            isInited = true;
+
             scrollView.invalidate();
             scrollView.requestLayout();
+
+            setValueIfInited();
         }
     }
 
@@ -731,7 +740,7 @@ public class ScrollPicker extends LinearLayout {
     }
 
     protected boolean isInitReady() {
-        return isOnSizeChangedFinished && isListInited;
+        return isOnSizeChangedFinished && areItemsSet;
     }
 
     @NonNull
@@ -810,7 +819,8 @@ public class ScrollPicker extends LinearLayout {
                 sendOnValueChanged( newIndex, l );
         }
         scrollYTo.set( newIndex * cellHeight );
-        updateTextViewsStyle();
+        if( isInited )
+            updateTextViewsStyle();
     }
 
     // if we use the Int implementation, send the Value itself, otherwise send the index of the selected value
