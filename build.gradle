@@ -9,14 +9,15 @@ buildscript {
 
 apply plugin: 'com.android.library'
 apply plugin: 'com.github.dcendents.android-maven'
+apply from: './scripts/maven-push.gradle'
 
 android {
     compileSdkVersion 28
     defaultConfig {
         minSdkVersion 11
         targetSdkVersion 28
-        versionName '1.7.4'
-        versionCode 40
+        versionName '1.7.5'
+        versionCode 41
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
 
